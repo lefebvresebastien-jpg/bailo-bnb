@@ -2623,8 +2623,24 @@ let currentResaMsg = null;
 let allMessages = [];
 
 async function loadMessagesBailleur() {
-  // Charger tous les messages + incidents
-  const { data: msgs } = await db.from('bnb_messages').select('*').eq('user_id', USER_ID).order('created_at', { ascending: false });
+  // S'assurer que les resas sont chargées
+  if (!resas.length) {
+    const { data } = await db.from('bnb_bookings').select('*').eq('user_id', USER_ID);
+    resas = data || [];
+  }
+
+  // Charger tous les messages des réservations du bailleur
+  const resaIds = resas.map(r => r.id);
+  if (!resaIds.length) {
+    document.getElementById('msg-conv-list').innerHTML = '<div class="empty-state"><p>Aucune réservation</p></div>';
+    document.getElementById('nav-msg-badge').style.display = 'none';
+    return;
+  }
+
+  const { data: msgs } = await db.from('bnb_messages')
+    .select('*')
+    .in('resa_id', resaIds)
+    .order('created_at', { ascending: false });
   allMessages = msgs || [];
 
   // Grouper par resa_id
@@ -2672,7 +2688,10 @@ async function loadMessagesBailleur() {
   }).join('');
 
   // Incidents
-  const { data: incidents } = await db.from('bnb_incidents').select('*').eq('user_id', USER_ID).order('created_at', { ascending: false });
+  const { data: incidents } = await db.from('bnb_incidents')
+    .select('*')
+    .in('resa_id', resaIds)
+    .order('created_at', { ascending: false });
   const incList = document.getElementById('msg-incidents-list');
   if (!incidents?.length) {
     incList.innerHTML = '<div class="empty-state"><p>Aucun incident signalé</p></div>';
