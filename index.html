@@ -2553,100 +2553,165 @@ function copyAirbnb() {
 // CONTRAT PDF
 async function genererContrat() {
   const resaId = document.getElementById('contrat-resa').value;
-  const bailleur = document.getElementById('contrat-bailleur').value;
-  const addrBailleur = document.getElementById('contrat-addr-bailleur').value;
-  const depot = document.getElementById('contrat-depot').value;
-  const annulation = document.getElementById('contrat-annulation').value;
-  const reglement = document.getElementById('contrat-reglement').value;
+  if (!resaId) { alert('Sélectionnez une réservation.'); return; }
 
   const resa = resas.find(r => r.id === resaId);
   const bien = resa ? biens.find(b => b.id === resa.bien_id) : null;
+  const p = getParams();
+  const depot = document.getElementById('contrat-depot').value || '—';
+  const annulation = document.getElementById('contrat-annulation').value;
+  const reglement = document.getElementById('contrat-reglement').value;
+
+  const nuits = resa?.arrivee && resa?.depart ? Math.round((new Date(resa.depart) - new Date(resa.arrivee)) / 86400000) : 0;
+  const tauxTaxe = 0; // pas de taxe dans le contrat (elle est dans les factures)
+  const montantLocation = resa?.montant || 0;
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  const margin = 20;
-  let y = 20;
+  const m = 20;
+  let y = 38;
 
-  const line = (text, size = 10, style = 'normal', color = [30, 30, 46]) => {
-    doc.setFontSize(size).setFont('helvetica', style).setTextColor(...color);
-    const lines = doc.splitTextToSize(text, 170);
-    doc.text(lines, margin, y);
-    y += lines.length * (size * 0.4 + 2);
+  const t = (txt, s=10, style='normal', color=[30,30,46]) => {
+    doc.setFontSize(s).setFont('helvetica', style).setTextColor(...color);
+    const lines = doc.splitTextToSize(String(txt || ''), 170);
+    doc.text(lines, m, y); y += lines.length * (s * 0.38 + 2);
+    if (y > 272) { doc.addPage(); y = 20; }
+    return y;
   };
-  const gap = (n = 6) => { y += n; };
-  const hr = () => { doc.setDrawColor(200, 200, 200); doc.line(margin, y, 190, y); gap(4); };
+  const gap = (n=5) => { y += n; };
+  const hr = () => { doc.setDrawColor(220,220,220); doc.setLineWidth(0.3); doc.line(m, y, 190, y); y += 5; };
+  const field = (label, val) => {
+    doc.setFontSize(8).setFont('helvetica','bold').setTextColor(100,100,120);
+    doc.text(label.toUpperCase(), m, y); y += 4;
+    doc.setFontSize(10).setFont('helvetica','normal').setTextColor(30,30,46);
+    const lines = doc.splitTextToSize(String(val || '_______________'), 170);
+    doc.text(lines, m, y); y += lines.length * 5 + 2;
+    doc.setDrawColor(220,220,220); doc.line(m, y, 190, y); y += 5;
+  };
+  const section = (num, titre) => {
+    gap(4);
+    doc.setFillColor(245,246,250); doc.rect(m-2, y-4, 174, 11, 'F');
+    doc.setFontSize(11).setFont('helvetica','bold').setTextColor(59,91,219);
+    doc.text('ARTICLE ' + num + ' — ' + titre, m, y+4);
+    y += 12; gap(2);
+  };
 
-  line('CONTRAT DE LOCATION MEUBLÉE DE TOURISME', 14, 'bold', [59, 91, 219]);
-  line('(Code du tourisme art. L324-1-1 — Code civil art. 1709 et suivants)', 8, 'normal', [100, 100, 120]);
-  gap(8); hr();
+  // HEADER
+  doc.setFillColor(59,91,219); doc.rect(0,0,210,32,'F');
+  doc.setFontSize(14).setFont('helvetica','bold').setTextColor(255,255,255);
+  doc.text('CONTRAT DE LOCATION MEUBLEE DE TOURISME', m, 13);
+  doc.setFontSize(8).setFont('helvetica','normal');
+  doc.text('Code du tourisme art. L324-1-1  -  Code civil art. 1709 et suivants', m, 22);
+  const numContrat = 'CT-' + new Date().getFullYear() + '-' + String(resas.indexOf(resa)+1).padStart(3,'0');
+  doc.text('No ' + numContrat + '  -  Etabli le ' + new Date().toLocaleDateString('fr-FR'), 190, 22, { align:'right' });
 
-  line('1. PARTIES', 11, 'bold');
+  // ART 1 - PARTIES
+  section(1, 'PARTIES');
+  field('Bailleur — Nom et prenom', p.nom || '_______________');
+  field('Adresse du bailleur', p.adresse || '_______________');
+  field('Telephone', p.tel || '_______________');
+  field('Email', p.email || '_______________');
   gap(4);
-  line(`Bailleur : ${bailleur || '_______________'}`);
-  line(`Adresse : ${addrBailleur || '_______________'}`);
-  gap(4);
-  if (resa) {
-    line(`Locataire : ${resa.guest_nom || '_______________'}`);
-    line(`Email : ${resa.guest_email || '_______________'}`);
-    line(`Téléphone : ${resa.guest_tel || '_______________'}`);
+  field('Locataire — Nom et prenom', resa?.guest_nom || '_______________');
+  field('Adresse du locataire', '_______________________________________________');
+  field('Email du locataire', resa?.guest_email || '_______________');
+  field('Telephone du locataire', resa?.guest_tel || '_______________');
+  field('Nombre de personnes', String(resa?.nb_voyageurs || 1) + ' personne(s)');
+
+  // ART 2 - BIEN
+  section(2, 'DESIGNATION DU BIEN LOUE');
+  field('Type de logement', bien?.type || 'Meuble de tourisme');
+  field('Nom du bien', bien?.nom || '_______________');
+  field('Adresse complete', bien?.adresse || '_______________');
+  field('Surface', (bien?.surface ? bien.surface + ' m²' : '_______________'));
+  field('Capacite maximale', (bien?.capacite ? bien.capacite + ' personnes' : '_______________'));
+  field('Nombre de chambres', String(bien?.chambres || '___'));
+  field('Classement Atout France', (bien?.classement && bien.classement !== 'non_classe' ? bien.classement + ' etoile(s)' : 'Non classe'));
+  field('No declaration mairie (art. L324-1-1)', bien?.num_declaration || 'En cours d obtention');
+
+  // ART 3 - PERIODE
+  section(3, 'DUREE ET CONDITIONS D OCCUPATION');
+  field('Date et heure d arrivee', formatDate(resa?.arrivee) + ' a partir de 15h00');
+  field('Date et heure de depart', formatDate(resa?.depart) + ' avant 11h00');
+  field('Duree totale du sejour', nuits + ' nuit(s)');
+  field('Plateforme de reservation', resa?.plateforme || 'Direct');
+  t('Le locataire s engage a occuper le logement a titre de sejour touristique temporaire uniquement. La sous-location est formellement interdite. Le nombre maximal d occupants ne peut etre depasse.', 9, 'normal', [100,100,120]);
+
+  // ART 4 - PRIX
+  section(4, 'PRIX ET MODALITES DE PAIEMENT');
+  field('Prix par nuit', (bien?.prix_nuit ? fmt(bien.prix_nuit) : '___') );
+  field('Montant total de la location (' + nuits + ' nuits)', fmt(montantLocation));
+  field('Taxe de sejour (collectee separement)', 'Selon le taux en vigueur dans la commune — a regler en sus');
+  field('Depot de garantie', (depot !== '—' ? depot + ' EUR' : '_______________') + ' (restitue sous 72h apres depart, deduction faite des degradations eventuelles)');
+  t('Note legale : Le depot de garantie ne peut exceder 25% du prix total HT pour les sejours superieurs a une semaine (art. L324-2 Code du tourisme). Les acomptes et modalites de reglement sont precises dans la facture d acompte remise separement.', 8, 'normal', [120,120,140]);
+
+  // ART 5 - ANNULATION
+  section(5, 'CONDITIONS D ANNULATION');
+  if (annulation) {
+    t(annulation, 10);
+  } else {
+    t('• Annulation plus de 7 jours avant l arrivee : remboursement integral de l acompte verse.');
+    t('• Annulation entre 3 et 7 jours avant l arrivee : retenue de 50% de l acompte.');
+    t('• Annulation moins de 3 jours avant l arrivee : aucun remboursement.');
+    t('• Cas de force majeure dument justifie (catastrophe naturelle, deces, hospitalisation) : arrangement amiable.');
+    t('• Non-presentation du locataire sans annulation prealable : totalite du montant reste due.');
   }
-  gap(6); hr();
 
-  line('2. BIEN LOUÉ', 11, 'bold');
-  gap(4);
-  if (bien) {
-    line(`Désignation : ${bien.type || 'Meublé de tourisme'} — ${bien.nom}`);
-    line(`Adresse : ${bien.adresse || '_______________'}`);
-    line(`Capacité : ${bien.capacite || '—'} personnes maximum`);
-    line(`Numéro de déclaration mairie : ${bien.num_declaration || 'En cours d\'obtention'}`);
+  // ART 6 - REGLEMENT
+  section(6, 'REGLEMENT INTERIEUR');
+  if (reglement) {
+    t(reglement, 10);
+  } else {
+    t('• Logement non-fumeur (y compris terrasse et balcon)');
+    t('• Animaux de compagnie : selon accord prealable du bailleur');
+    t('• Respect des voisins — bruit interdit apres 22h00');
+    t('• Tri selectif des dechets obligatoire');
+    t('• Fetes et soirees : interdites sans accord ecrit du bailleur');
+    t('• Check-out : liberer les lieux avant 11h00, laisser les cles a l emplacement convenu');
+    t('• Le logement doit etre rendu dans l etat dans lequel il a ete trouve');
   }
-  gap(6); hr();
 
-  line('3. PÉRIODE DE LOCATION', 11, 'bold');
+  // ART 7 - OBLIGATIONS
+  section(7, 'OBLIGATIONS ET RESPONSABILITES');
+  t('Le bailleur s engage a : mettre a disposition le logement conforme a sa description, assurer la tranquillite de jouissance du locataire, disposer d une assurance proprietaire non-occupant (PNO) couvrant la location touristique.');
   gap(4);
-  if (resa) {
-    const nuits = resa.arrivee && resa.depart ? Math.round((new Date(resa.depart) - new Date(resa.arrivee)) / 86400000) : '—';
-    line(`Arrivée : ${formatDate(resa.arrivee)} à partir de 15h00`);
-    line(`Départ : ${formatDate(resa.depart)} avant 11h00`);
-    line(`Durée : ${nuits} nuit(s) — ${resa.nb_voyageurs || 1} voyageur(s)`);
-    line(`Plateforme de réservation : ${resa.plateforme || '—'}`);
-  }
-  gap(6); hr();
-
-  line('4. PRIX ET MODALITÉS DE PAIEMENT', 11, 'bold');
+  t('Le locataire est responsable de tous dommages causes au logement et a son contenu pendant la duree du sejour. Il est conseille de verifier que son assurance habitation personnelle comporte une garantie "villegiature" couvrant les sejours en location.');
   gap(4);
-  if (resa) {
-    line(`Montant total : ${resa.montant ? resa.montant + ' €' : '_______________'} TTC`);
-    line(`Dépôt de garantie : ${depot || '_______________'} € (restitué dans les 72h après départ)`);
-    line('Note : Le dépôt de garantie ne peut excéder 25% du prix total HT pour les séjours supérieurs à 1 semaine.');
-  }
-  gap(6); hr();
+  t('AirCover (Airbnb) ou garanties equivalentes des plateformes ne se substituent pas a une assurance personnelle.');
 
-  line('5. CONDITIONS D\'ANNULATION', 11, 'bold');
-  gap(4);
-  line(annulation || 'Selon les conditions définies lors de la réservation.');
-  gap(6); hr();
+  // ART 8 - DISPOSITIONS LEGALES
+  section(8, 'DISPOSITIONS LEGALES');
+  t('Le present contrat est regi par les dispositions du Code du tourisme (art. L324-1-1 et R324-1 et suivants) et du Code civil (art. 1709 et suivants). Il ne constitue pas un bail d habitation au sens de la loi no 89-462 du 6 juillet 1989.');
+  gap(3);
+  t('Ce logement est declare aupres de la mairie de ' + (bien?.adresse?.split(',').pop()?.trim() || '___________') + ' conformement a l article L324-1-1 du Code du tourisme.');
+  gap(3);
+  t('En cas de litige, les parties s engagent a rechercher une solution amiable avant tout recours judiciaire. A defaut, le tribunal competent sera celui du lieu de situation du bien.');
 
-  line('6. RÈGLEMENT INTÉRIEUR', 11, 'bold');
-  gap(4);
-  line(reglement || 'Non-fumeur — Respect du voisinage — Check-out avant 11h.');
-  gap(6); hr();
-
-  line('7. DISPOSITIONS LÉGALES', 11, 'bold');
-  gap(4);
-  line('Le présent contrat est soumis aux dispositions du Code du tourisme (art. L324-1-1 et suivants) et du Code civil (art. 1709 et suivants). Il ne constitue pas un bail d\'habitation soumis à la loi du 6 juillet 1989.');
-  line('Conformément à l\'article L324-1-1 du Code du tourisme, ce logement est déclaré comme meublé de tourisme auprès de la mairie compétente.');
-  gap(10); hr();
-
-  line('8. SIGNATURES', 11, 'bold');
-  gap(10);
-  line('Le Bailleur :                                              Le Locataire :');
-  gap(20);
-  line('Signature :_____________________                Signature :_____________________');
+  // ART 9 - SIGNATURES
+  if (y > 220) { doc.addPage(); y = 20; }
+  section(9, 'SIGNATURES');
   gap(6);
-  line(`Fait à _____________, le ${new Date().toLocaleDateString('fr-FR')}`);
+  doc.setFontSize(9).setFont('helvetica','bold').setTextColor(60,60,80);
+  doc.text('LE BAILLEUR', m, y); doc.text('LE(S) LOCATAIRE(S)', 120, y); y += 5;
+  doc.setFont('helvetica','normal').setTextColor(80,80,100).setFontSize(9);
+  doc.text(p.nom || '', m, y); y += 4;
+  doc.setFontSize(8).setTextColor(140,140,160);
+  doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+  doc.text('Lu et approuve - Date : ___/___/______', 120, y);
+  y += 4;
+  // Signature bailleur
+  addSignatureToPDF(doc, m, y - 8, 60, 22);
+  y += 20;
+  doc.setDrawColor(180,180,180);
+  doc.line(m, y, m+75, y); doc.line(120, y, 193, y); y += 5;
+  doc.setFontSize(8).setTextColor(140,140,160);
+  doc.text('Signature', m, y); doc.text('Signature', 120, y); y += 10;
+  t('Fait a ' + (bien?.adresse?.split(',').pop()?.trim() || '___________') + ', le ' + new Date().toLocaleDateString('fr-FR'), 9);
+  gap(6);
+  doc.setFontSize(7).setTextColor(160,160,160);
+  doc.text('Document genere par Bailo Airbnb — Valeur contractuelle apres signature des deux parties.', m, y);
 
-  doc.save(`contrat-${resa?.guest_nom?.replace(/\s/g, '-') || 'location'}-${resa?.arrivee || ''}.pdf`);
+  doc.save('contrat-' + (resa?.guest_nom?.replace(/\s/g,'-') || 'location') + '-' + (resa?.arrivee || '') + '.pdf');
 }
 
 // MESSAGERIE BAILLEUR
