@@ -712,13 +712,37 @@ function renderMessages() {
     list.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:20px">Démarrez la conversation avec votre hôte</div>';
     return;
   }
-  list.innerHTML = messages.map(m => `
-    <div style="display:flex;flex-direction:column;align-items:${m.role === 'bailleur' ? 'flex-start' : 'flex-end'}">
-      <div class="msg-bubble msg-${m.role}">
-        ${m.contenu}
-        <div class="msg-time">${formatDateTime(m.created_at)}</div>
-      </div>
-    </div>`).join('');
+  list.innerHTML = messages.map(m => {
+    // Si c'est un document PDF
+    if (m.doc_url && m.doc_type) {
+      const icons = { quittance: '✅', contrat: '📋', facture: '💳', bon_resa: '📋' };
+      const labels = { quittance: 'Quittance de séjour', contrat: 'Contrat de location', facture: 'Facture', bon_resa: 'Bon de réservation' };
+      return `
+        <div style="display:flex;flex-direction:column;align-items:flex-start">
+          <div style="max-width:85%;background:white;border:2px solid #10b981;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              <span style="font-size:24px">${icons[m.doc_type]||'📄'}</span>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--text)">${labels[m.doc_type]||'Document'}</div>
+                <div style="font-size:11px;color:var(--text-muted)">${m.doc_nom||''}</div>
+              </div>
+            </div>
+            <a href="${m.doc_url}" target="_blank" download style="display:flex;align-items:center;justify-content:center;gap:8px;background:#10b981;color:white;padding:10px 16px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;width:100%">
+              ↓ Télécharger le PDF
+            </a>
+            <div style="font-size:10px;color:var(--text-muted);margin-top:8px;text-align:right">${formatDateTime(m.created_at)}</div>
+          </div>
+        </div>`;
+    }
+    // Message normal
+    return `
+      <div style="display:flex;flex-direction:column;align-items:${m.role === 'bailleur' ? 'flex-start' : 'flex-end'}">
+        <div class="msg-bubble msg-${m.role}">
+          ${m.contenu.replace(/\n/g, '<br>')}
+          <div class="msg-time">${formatDateTime(m.created_at)}</div>
+        </div>
+      </div>`;
+  }).join('');
   list.scrollTop = list.scrollHeight;
 }
 
