@@ -322,6 +322,9 @@
     </div>
     <div class="nav-group">
       <div class="nav-label">Compte</div>
+      <a class="nav-item" onclick="showPage('messages-bailleur')">
+        <span class="icon">💬</span> Messages <span id="nav-msg-badge" style="display:none;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px">!</span>
+      </a>
       <a class="nav-item" onclick="showPage('parametres')">
         <span class="icon">⚙️</span> Paramètres
       </a>
@@ -1250,6 +1253,44 @@
       </div>
     </div>
 
+    <!-- MESSAGES BAILLEUR -->
+    <div class="page" id="page-messages-bailleur">
+      <div class="grid-2" id="msg-bailleur-layout">
+        <!-- Liste conversations -->
+        <div class="card" style="height:fit-content">
+          <div class="card-header">
+            <span class="card-title">💬 Conversations</span>
+            <span id="msg-conv-count" style="font-size:12px;color:var(--text-muted)"></span>
+          </div>
+          <div id="msg-conv-list" style="max-height:600px;overflow-y:auto">
+            <div class="empty-state"><p>Aucun message pour l'instant</p></div>
+          </div>
+        </div>
+        <!-- Fil de discussion -->
+        <div class="card" id="msg-thread-card" style="display:none">
+          <div class="card-header" style="flex-direction:column;align-items:flex-start;gap:4px">
+            <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+              <span class="card-title" id="msg-thread-title">Conversation</span>
+              <button class="btn btn-outline" onclick="closeMsgThread()" style="font-size:12px;padding:4px 10px">✕</button>
+            </div>
+            <div id="msg-thread-sub" style="font-size:12px;color:var(--text-muted)"></div>
+          </div>
+          <div style="padding:16px;max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:10px" id="msg-thread-list"></div>
+          <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px">
+            <input class="form-control" id="msg-bailleur-input" placeholder="Votre réponse..." onkeypress="if(event.key==='Enter')sendMsgBailleur()" style="border-radius:24px">
+            <button class="btn btn-primary" onclick="sendMsgBailleur()" style="border-radius:50%;width:40px;height:40px;padding:0;flex-shrink:0;font-size:16px">→</button>
+          </div>
+        </div>
+        <!-- Incidents -->
+        <div class="card" id="msg-incidents-card">
+          <div class="card-header"><span class="card-title">🚨 Incidents signalés</span></div>
+          <div class="card-body" id="msg-incidents-list">
+            <div class="empty-state"><p>Aucun incident</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- PARAMETRES -->
     <div class="page" id="page-parametres">
       <div class="card">
@@ -1509,7 +1550,8 @@ function showPage(name) {
   const titles = {
     dashboard: 'Tableau de bord', calendrier: 'Calendrier', reservations: 'Réservations',
     biens: 'Mes biens', voyageurs: 'Voyageurs', contrat: 'Contrat PDF',
-    annonce: 'Annonce IA', fiscalite: 'Fiscalité', demarches: 'Démarches admin', parametres: 'Paramètres'
+    annonce: 'Annonce IA', fiscalite: 'Fiscalité', demarches: 'Démarches admin',
+    'messages-bailleur': 'Messages', parametres: 'Paramètres'
   };
   document.getElementById('page-title').textContent = titles[name] || name;
   const actions = {
@@ -1531,6 +1573,7 @@ function showPage(name) {
   btn.style.display = label ? '' : 'none';
   if (name === 'calendrier') renderCal();
   if (name === 'fiscalite') { prefillFiscalFromResas(); }
+  if (name === 'messages-bailleur') { loadMessagesBailleur(); }
 }
 
 function toggleSidebar() {
@@ -2575,6 +2618,144 @@ async function genererContrat() {
   doc.save(`contrat-${resa?.guest_nom?.replace(/\s/g, '-') || 'location'}-${resa?.arrivee || ''}.pdf`);
 }
 
+// MESSAGERIE BAILLEUR
+let currentResaMsg = null;
+let allMessages = [];
+
+async function loadMessagesBailleur() {
+  // Charger tous les messages + incidents
+  const { data: msgs } = await db.from('bnb_messages').select('*').eq('user_id', USER_ID).order('created_at', { ascending: false });
+  allMessages = msgs || [];
+
+  // Grouper par resa_id
+  const byResa = {};
+  allMessages.forEach(m => {
+    if (!byResa[m.resa_id]) byResa[m.resa_id] = [];
+    byResa[m.resa_id].push(m);
+  });
+
+  const list = document.getElementById('msg-conv-list');
+  const convs = Object.entries(byResa);
+  document.getElementById('msg-conv-count').textContent = convs.length + ' conversation' + (convs.length > 1 ? 's' : '');
+
+  if (!convs.length) {
+    list.innerHTML = '<div class="empty-state"><p>Aucun message</p></div>';
+    document.getElementById('nav-msg-badge').style.display = 'none';
+    return;
+  }
+
+  // Compter non lus
+  const nonLus = allMessages.filter(m => m.role === 'voyageur' && !m.lu).length;
+  const badge = document.getElementById('nav-msg-badge');
+  badge.style.display = nonLus > 0 ? '' : 'none';
+  badge.textContent = nonLus;
+
+  list.innerHTML = convs.map(([resaId, msgs]) => {
+    const resa = resas.find(r => r.id === resaId);
+    const bien = resa ? biens.find(b => b.id === resa?.bien_id) : null;
+    const dernierMsg = msgs[0];
+    const nonLusConv = msgs.filter(m => m.role === 'voyageur' && !m.lu).length;
+    return `
+      <div onclick="openMsgThread('${resaId}')" style="padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;${currentResaMsg === resaId ? 'background:var(--primary-light)' : ''}" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='${currentResaMsg === resaId ? 'var(--primary-light)' : ''}'">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;font-weight:${nonLusConv > 0 ? '700' : '600'};color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${resa?.guest_nom || 'Voyageur'}
+              ${nonLusConv > 0 ? `<span style="background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:6px">${nonLusConv}</span>` : ''}
+            </div>
+            <div style="font-size:11px;color:var(--primary);margin-top:2px">${bien?.nom || ''} · ${formatDate(resa?.arrivee)}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${dernierMsg.contenu.substring(0, 60)}${dernierMsg.contenu.length > 60 ? '...' : ''}</div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);flex-shrink:0">${formatDateTime(dernierMsg.created_at)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Incidents
+  const { data: incidents } = await db.from('bnb_incidents').select('*').eq('user_id', USER_ID).order('created_at', { ascending: false });
+  const incList = document.getElementById('msg-incidents-list');
+  if (!incidents?.length) {
+    incList.innerHTML = '<div class="empty-state"><p>Aucun incident signalé</p></div>';
+  } else {
+    const urgColors = { faible: 'badge-info', normale: 'badge-warning', urgente: 'badge-danger' };
+    incList.innerHTML = incidents.map(inc => {
+      const resa = resas.find(r => r.id === inc.resa_id);
+      const bien = resa ? biens.find(b => b.id === resa?.bien_id) : null;
+      return `
+        <div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:8px;border:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:13px;font-weight:700">${inc.type_incident || 'Incident'}</span>
+            <span class="badge ${urgColors[inc.urgence] || 'badge-info'}">${inc.urgence}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">${inc.description}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${inc.guest_nom || ''} · ${bien?.nom || ''} · ${formatDateTime(inc.created_at)}</div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button onclick="repondreIncident('${inc.resa_id}')" class="btn btn-outline" style="font-size:11px;padding:4px 10px">💬 Répondre</button>
+            <button onclick="cloturerIncident('${inc.id}')" class="btn btn-outline" style="font-size:11px;padding:4px 10px;color:var(--success)">✅ Clôturer</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+}
+
+async function openMsgThread(resaId) {
+  currentResaMsg = resaId;
+  const resa = resas.find(r => r.id === resaId);
+  const bien = resa ? biens.find(b => b.id === resa?.bien_id) : null;
+
+  document.getElementById('msg-thread-card').style.display = 'block';
+  document.getElementById('msg-thread-title').textContent = resa?.guest_nom || 'Voyageur';
+  document.getElementById('msg-thread-sub').textContent = `${bien?.nom || ''} · ${formatDate(resa?.arrivee)} → ${formatDate(resa?.depart)}`;
+
+  // Charger messages de cette réservation
+  const { data: msgs } = await db.from('bnb_messages').select('*').eq('resa_id', resaId).order('created_at', { ascending: true });
+
+  // Marquer comme lus
+  await db.from('bnb_messages').update({ lu: true }).eq('resa_id', resaId).eq('role', 'voyageur');
+
+  const list = document.getElementById('msg-thread-list');
+  list.innerHTML = msgs?.map(m => `
+    <div style="display:flex;flex-direction:column;align-items:${m.role === 'bailleur' ? 'flex-end' : 'flex-start'}">
+      <div style="max-width:80%;padding:10px 14px;border-radius:${m.role === 'bailleur' ? '16px 16px 4px 16px' : '16px 16px 16px 4px'};font-size:13px;line-height:1.5;${m.role === 'bailleur' ? 'background:var(--primary);color:white' : 'background:var(--bg);border:1px solid var(--border);color:var(--text)'}">
+        ${m.contenu}
+        <div style="font-size:10px;opacity:.7;margin-top:4px;text-align:right">${m.expediteur || (m.role === 'bailleur' ? 'Vous' : 'Voyageur')} · ${formatDateTime(m.created_at)}</div>
+      </div>
+    </div>`).join('') || '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:20px">Début de la conversation</div>';
+
+  list.scrollTop = list.scrollHeight;
+  document.getElementById('msg-bailleur-input').focus();
+  loadMessagesBailleur(); // Refresh liste pour retirer badge
+}
+
+async function sendMsgBailleur() {
+  if (!currentResaMsg) return;
+  const input = document.getElementById('msg-bailleur-input');
+  const contenu = input.value.trim();
+  if (!contenu) return;
+  const params = JSON.parse(localStorage.getItem('bnb_params') || '{}');
+  input.value = '';
+  await db.from('bnb_messages').insert({
+    resa_id: currentResaMsg, user_id: USER_ID,
+    role: 'bailleur', contenu,
+    expediteur: params.nom || 'Votre hôte', lu: false
+  });
+  await openMsgThread(currentResaMsg);
+}
+
+function closeMsgThread() {
+  currentResaMsg = null;
+  document.getElementById('msg-thread-card').style.display = 'none';
+}
+
+function repondreIncident(resaId) {
+  openMsgThread(resaId);
+}
+
+async function cloturerIncident(id) {
+  await db.from('bnb_incidents').update({ statut: 'cloture' }).eq('id', id);
+  loadMessagesBailleur();
+}
+
 // PARAMS
 function saveParams() {
   const data = {
@@ -2626,6 +2807,7 @@ async function init() {
   await loadBiens();
   await loadResas();
   renderCal();
+  loadMessagesBailleur(); // Badge sidebar
   // Mobile
   if (window.innerWidth <= 768) document.getElementById('menu-btn').style.display = '';
 }
