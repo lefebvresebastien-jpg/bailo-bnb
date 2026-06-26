@@ -1282,7 +1282,7 @@
       <input type="hidden" id="resa-id">
       <div class="form-group">
         <label class="form-label">Bien</label>
-        <select class="form-control" id="resa-bien-id">
+        <select class="form-control" id="resa-bien-id" onchange="calcMontantAuto()">
           <option value="">Sélectionner un bien</option>
         </select>
       </div>
@@ -1301,17 +1301,18 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Arrivée</label>
-          <input class="form-control" type="date" id="resa-arrivee">
+          <input class="form-control" type="date" id="resa-arrivee" onchange="calcMontantAuto()">
         </div>
         <div class="form-group">
           <label class="form-label">Départ</label>
-          <input class="form-control" type="date" id="resa-depart">
+          <input class="form-control" type="date" id="resa-depart" onchange="calcMontantAuto()">
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Montant total (€)</label>
           <input class="form-control" type="number" id="resa-montant" placeholder="350">
+          <div id="resa-montant-hint" style="font-size:11px;color:var(--primary);margin-top:4px;display:none"></div>
         </div>
         <div class="form-group">
           <label class="form-label">Nb voyageurs</label>
@@ -2202,6 +2203,22 @@ function genererCerfa() {
 }
 
 // ANNONCE IA
+function calcMontantAuto() {
+  const bienId = document.getElementById('resa-bien-id').value;
+  const arrivee = document.getElementById('resa-arrivee').value;
+  const depart = document.getElementById('resa-depart').value;
+  const hint = document.getElementById('resa-montant-hint');
+  if (!bienId || !arrivee || !depart) { hint.style.display = 'none'; return; }
+  const bien = biens.find(b => b.id === bienId);
+  if (!bien || !bien.prix_nuit) { hint.style.display = 'none'; return; }
+  const nuits = Math.round((new Date(depart) - new Date(arrivee)) / 86400000);
+  if (nuits <= 0) { hint.style.display = 'none'; return; }
+  const total = nuits * bien.prix_nuit;
+  document.getElementById('resa-montant').value = total;
+  hint.style.display = 'block';
+  hint.textContent = `${nuits} nuit${nuits > 1 ? 's' : ''} × ${bien.prix_nuit}€ = ${total}€ (modifiable)`;
+}
+
 function prefillAnnonceFromBien() {
   const bienId = document.getElementById('annonce-bien').value;
   const bien = biens.find(b => b.id === bienId);
