@@ -658,10 +658,39 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">Annonce générée</span>
-            <button class="btn btn-outline" id="btn-copy-annonce" onclick="copyAnnonce()" style="display:none;font-size:12px">Copier</button>
+            <div style="display:flex;gap:8px" id="annonce-actions" style="display:none">
+              <button class="btn btn-outline" id="btn-copy-annonce" onclick="copyAnnonce()" style="display:none;font-size:12px">📋 Copier le texte</button>
+              <button class="btn btn-outline" id="btn-copy-airbnb" onclick="copyAirbnb()" style="display:none;font-size:12px">🏠 Copier pour Airbnb</button>
+            </div>
           </div>
-          <div class="card-body">
-            <div class="ia-output" id="ia-annonce-output">L'annonce apparaîtra ici après génération...</div>
+          <div class="card-body" style="padding:0">
+
+            <!-- Galerie photos du bien -->
+            <div id="annonce-photos-section" style="display:none">
+              <div id="annonce-photos-grid" style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:3px;max-height:260px;overflow:hidden;border-radius:12px 12px 0 0"></div>
+            </div>
+
+            <!-- Aperçu annonce style Airbnb -->
+            <div id="annonce-preview" style="display:none;padding:20px">
+              <div id="annonce-titre-preview" style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px"></div>
+              <div id="annonce-meta-preview" style="font-size:13px;color:var(--text-muted);margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap"></div>
+              <div style="border-top:1px solid var(--border);padding-top:16px">
+                <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">Description</div>
+                <div id="annonce-desc-preview" style="font-size:13px;line-height:1.75;color:var(--text);white-space:pre-wrap"></div>
+              </div>
+            </div>
+
+            <!-- Output brut (masqué par défaut quand preview actif) -->
+            <div style="padding:20px" id="annonce-raw-section">
+              <div class="ia-output" id="ia-annonce-output" style="background:transparent;border:none;padding:0;min-height:80px">L'annonce apparaîtra ici après génération...</div>
+            </div>
+
+            <!-- Toggle vue -->
+            <div id="annonce-toggle-bar" style="display:none;padding:0 20px 16px;display:none;gap:8px">
+              <button class="btn btn-outline" onclick="toggleAnnonceView('preview')" id="btn-view-preview" style="font-size:12px">👁 Aperçu</button>
+              <button class="btn btn-outline" onclick="toggleAnnonceView('raw')" id="btn-view-raw" style="font-size:12px">📝 Texte brut</button>
+            </div>
+
           </div>
         </div>
       </div>
@@ -2115,7 +2144,11 @@ function genererCerfa() {
 }
 
 // ANNONCE IA
+let lastAnnonceText = '';
+
 async function genererAnnonce() {
+  const bienId = document.getElementById('annonce-bien').value;
+  const bien = biens.find(b => b.id === bienId);
   const type = document.getElementById('annonce-type').value;
   const capa = document.getElementById('annonce-capa').value;
   const chambres = document.getElementById('annonce-chambres').value;
@@ -2125,26 +2158,67 @@ async function genererAnnonce() {
   const ton = document.getElementById('annonce-ton').value;
   const tonsLabels = { chaleureux: 'chaleureux et convivial', premium: 'premium et élégant', famille: 'idéal famille', professionnel: 'voyageur professionnel' };
 
-  const output = document.getElementById('ia-annonce-output');
-  output.innerHTML = '<div class="ia-loading"><div class="spinner"></div> Génération en cours...</div>';
-  document.getElementById('btn-copy-annonce').style.display = 'none';
+  // Afficher les photos si dispo
+  const photosSection = document.getElementById('annonce-photos-section');
+  const photosGrid = document.getElementById('annonce-photos-grid');
+  if (bien && bien.photos && bien.photos.length > 0) {
+    const photos = bien.photos.slice(0, 5);
+    photosGrid.innerHTML = photos.map((src, i) => {
+      const isMain = i === 0;
+      return `<div style="${isMain ? 'grid-row:span 2;' : ''}position:relative;overflow:hidden;background:#e5e7eb">
+        <img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block;${isMain ? 'min-height:200px' : 'min-height:97px'}">
+      </div>`;
+    }).join('');
+    // Ajuster la grille selon nb photos
+    if (photos.length === 1) photosGrid.style.gridTemplateColumns = '1fr';
+    else if (photos.length === 2) photosGrid.style.gridTemplateColumns = '2fr 1fr';
+    else photosGrid.style.gridTemplateColumns = '2fr 1fr 1fr';
+    photosSection.style.display = 'block';
+  } else {
+    photosSection.style.display = 'none';
+  }
 
-  const prompt = `Tu es un expert en location courte durée Airbnb. Génère une annonce de location courte durée professionnelle et percutante en français pour :
-- Type de bien : ${type}
+  const output = document.getElementById('ia-annonce-output');
+  const preview = document.getElementById('annonce-preview');
+  preview.style.display = 'none';
+  document.getElementById('annonce-raw-section').style.display = 'block';
+  output.innerHTML = '<div class="ia-loading"><div class="spinner"></div> Génération de l\'annonce en cours...</div>';
+  document.getElementById('btn-copy-annonce').style.display = 'none';
+  document.getElementById('btn-copy-airbnb').style.display = 'none';
+  document.getElementById('annonce-toggle-bar').style.display = 'none';
+
+  // Infos photos pour le prompt
+  const nbPhotos = bien?.photos?.length || 0;
+  const photosInfo = nbPhotos > 0 ? `${nbPhotos} photo(s) disponible(s) pour illustrer l'annonce` : 'Pas encore de photos';
+
+  const prompt = `Tu es un expert en location courte durée Airbnb. Génère une annonce professionnelle et percutante en français.
+
+BIEN :
+- Type : ${type}
 - Capacité : ${capa} personnes
 - Chambres : ${chambres}
 - Ville/quartier : ${ville}
 - Points forts : ${points}
 - Proximité : ${proxim}
-- Ton souhaité : ${tonsLabels[ton]}
+- Photos : ${photosInfo}
+- Ton : ${tonsLabels[ton]}
 
-L'annonce doit comporter :
-1. Un TITRE accrocheur (max 50 caractères, sans guillemets)
-2. Une DESCRIPTION complète (300-400 mots) qui donne envie de réserver
-3. Les ÉQUIPEMENTS mis en avant (liste courte)
-4. Les RÈGLES DE LA MAISON (2-3 lignes)
+FORMAT DE RÉPONSE STRICT (respecte exactement ces balises) :
+##TITRE##
+[Titre accrocheur max 50 caractères]
+##FIN_TITRE##
 
-Format : sections clairement séparées, ton ${tonsLabels[ton]}, optimisé pour Airbnb.`;
+##DESCRIPTION##
+[Description complète 300-400 mots, paragraphes séparés par ligne vide, donne vraiment envie de réserver, mentionne les photos si disponibles pour suggérer de les consulter]
+##FIN_DESCRIPTION##
+
+##EQUIPEMENTS##
+[Liste 6-8 équipements clés, un par ligne avec emoji]
+##FIN_EQUIPEMENTS##
+
+##REGLES##
+[3-4 règles de la maison courtes]
+##FIN_REGLES##`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -2152,23 +2226,96 @@ Format : sections clairement séparées, ton ${tonsLabels[ton]}, optimisé pour 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
+        max_tokens: 1200,
         messages: [{ role: 'user', content: prompt }]
       })
     });
     const data = await response.json();
     const text = data.content?.[0]?.text || 'Erreur lors de la génération.';
-    output.textContent = text;
+    lastAnnonceText = text;
+
+    // Parser les sections
+    const extract = (tag, txt) => {
+      const m = txt.match(new RegExp(`##${tag}##([\\s\\S]*?)##FIN_${tag}##`));
+      return m ? m[1].trim() : '';
+    };
+    const titre = extract('TITRE', text);
+    const desc = extract('DESCRIPTION', text);
+    const equip = extract('EQUIPEMENTS', text);
+    const regles = extract('REGLES', text);
+
+    if (titre && desc) {
+      // Vue preview
+      document.getElementById('annonce-titre-preview').textContent = titre;
+      const meta = [];
+      if (capa) meta.push(`👥 ${capa} personnes`);
+      if (chambres) meta.push(`🛏 ${chambres} chambres`);
+      if (ville) meta.push(`📍 ${ville}`);
+      if (nbPhotos > 0) meta.push(`📷 ${nbPhotos} photo${nbPhotos > 1 ? 's' : ''}`);
+      document.getElementById('annonce-meta-preview').innerHTML = meta.map(m => `<span style="display:inline-flex;align-items:center;gap:4px">${m}</span>`).join('');
+
+      let descHtml = `<div style="margin-bottom:16px">${desc.replace(/\n\n/g, '</div><div style="margin-bottom:12px">').replace(/\n/g, '<br>')}</div>`;
+      if (equip) descHtml += `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:13px;font-weight:600;margin-bottom:8px">Équipements</div><div style="font-size:13px;line-height:2;color:var(--text-muted)">${equip.replace(/\n/g, '<br>')}</div></div>`;
+      if (regles) descHtml += `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)"><div style="font-size:13px;font-weight:600;margin-bottom:8px">Règles de la maison</div><div style="font-size:13px;line-height:2;color:var(--text-muted)">${regles.replace(/\n/g, '<br>')}</div></div>`;
+      document.getElementById('annonce-desc-preview').innerHTML = descHtml;
+
+      // Afficher preview
+      document.getElementById('annonce-raw-section').style.display = 'none';
+      preview.style.display = 'block';
+      document.getElementById('annonce-toggle-bar').style.display = 'flex';
+    } else {
+      // Fallback texte brut
+      output.textContent = text;
+    }
+
     document.getElementById('btn-copy-annonce').style.display = '';
+    document.getElementById('btn-copy-airbnb').style.display = '';
+
   } catch (e) {
     output.textContent = 'Erreur : ' + e.message;
   }
 }
 
+function toggleAnnonceView(mode) {
+  const preview = document.getElementById('annonce-preview');
+  const raw = document.getElementById('annonce-raw-section');
+  const output = document.getElementById('ia-annonce-output');
+  if (mode === 'preview') {
+    preview.style.display = 'block';
+    raw.style.display = 'none';
+    document.getElementById('btn-view-preview').style.fontWeight = '700';
+    document.getElementById('btn-view-raw').style.fontWeight = '400';
+  } else {
+    preview.style.display = 'none';
+    raw.style.display = 'block';
+    output.textContent = lastAnnonceText;
+    document.getElementById('btn-view-raw').style.fontWeight = '700';
+    document.getElementById('btn-view-preview').style.fontWeight = '400';
+  }
+}
+
 function copyAnnonce() {
-  navigator.clipboard.writeText(document.getElementById('ia-annonce-output').textContent);
-  document.getElementById('btn-copy-annonce').textContent = 'Copié !';
-  setTimeout(() => { document.getElementById('btn-copy-annonce').textContent = 'Copier'; }, 2000);
+  const text = lastAnnonceText || document.getElementById('ia-annonce-output').textContent;
+  navigator.clipboard.writeText(text);
+  document.getElementById('btn-copy-annonce').textContent = '✅ Copié !';
+  setTimeout(() => { document.getElementById('btn-copy-annonce').textContent = '📋 Copier le texte'; }, 2000);
+}
+
+function copyAirbnb() {
+  // Copie format optimisé Airbnb : titre + description nettoyée
+  const titre = document.getElementById('annonce-titre-preview').textContent;
+  const text = lastAnnonceText;
+  const extract = (tag, txt) => {
+    const m = txt.match(new RegExp(`##${tag}##([\\s\\S]*?)##FIN_${tag}##`));
+    return m ? m[1].trim() : '';
+  };
+  const desc = extract('DESCRIPTION', text);
+  const equip = extract('EQUIPEMENTS', text);
+  const regles = extract('REGLES', text);
+  const airbnb = `${titre}\n\n${desc}${equip ? '\n\n---\nÉQUIPEMENTS\n' + equip : ''}${regles ? '\n\n---\nRÈGLES DE LA MAISON\n' + regles : ''}`;
+  navigator.clipboard.writeText(airbnb);
+  document.getElementById('btn-copy-airbnb').textContent = '✅ Copié !';
+  setTimeout(() => { document.getElementById('btn-copy-airbnb').textContent = '🏠 Copier pour Airbnb'; }, 2000);
 }
 
 // CONTRAT PDF
