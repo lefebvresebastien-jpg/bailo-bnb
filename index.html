@@ -239,6 +239,28 @@
     font-size: 12px; display: flex; align-items: center; justify-content: center;
   }
 
+  /* DEMARCHES ENRICHIES */
+  .dem-block {
+    background: var(--white); border-radius: 12px; border: 1px solid var(--border);
+    margin-bottom: 12px; overflow: hidden;
+  }
+  .dem-block.done-block { border-color: #86efac; }
+  .dem-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; cursor: pointer; transition: background .15s; gap: 12px;
+  }
+  .dem-header:hover { background: var(--bg); }
+  .dem-panel {
+    display: none; padding: 0 20px 20px; border-top: 1px solid var(--border);
+  }
+  .dem-panel.open { display: block; }
+  .dem-panel > *:first-child { margin-top: 16px; }
+  .dem-chevron { font-size: 11px; color: var(--text-muted); transition: transform .2s; }
+  .dem-chevron.open { transform: rotate(180deg); }
+  .dem-info-box {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+  }
+
   /* RESPONSIVE */
   @media (max-width: 768px) {
     #sidebar { transform: translateX(-100%); transition: transform .2s; }
@@ -700,78 +722,482 @@
 
     <!-- DEMARCHES -->
     <div class="page" id="page-demarches">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Checklist démarches administratives</span>
-          <span id="demarches-progress" style="font-size:12px;color:var(--text-muted)">0 / 8 complétées</span>
+
+      <!-- Sélecteur de bien -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-body" style="padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:600;color:var(--text);flex-shrink:0">Bien concerné :</span>
+          <select class="form-control" id="dem-bien-select" onchange="onDemBienChange()" style="max-width:280px">
+            <option value="">-- Sélectionner un bien --</option>
+          </select>
+          <span id="dem-bien-info" style="font-size:12px;color:var(--text-muted)"></span>
+          <span id="demarches-progress" style="font-size:12px;color:var(--text-muted);margin-left:auto">0 / 8 complétées</span>
         </div>
-        <div class="card-body">
-          <div class="checklist" id="demarches-list">
-            <div class="check-item" id="dem-1" onclick="toggleDem(1)">
-              <div class="check-box" id="dem-box-1"></div>
-              <div>
-                <div class="check-title">Déclaration en mairie (Cerfa 14004)</div>
-                <div class="check-desc">Obligatoire pour tout meublé de tourisme, même résidence principale. À déposer en mairie ou en ligne. Gratuit. Vous recevrez un numéro de déclaration à afficher sur vos annonces.</div>
-                <span class="badge badge-danger check-tag">Obligatoire</span>
+      </div>
+
+      <!-- ÉTAPE 1 — Cerfa 14004 -->
+      <div class="dem-block" id="dem-1">
+        <div class="dem-header" onclick="toggleDem(1)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="check-box" id="dem-box-1"></div>
+            <div>
+              <div class="check-title">Déclaration en mairie (Cerfa 14004)</div>
+              <div class="check-desc">Obligatoire pour tout meublé de tourisme — résidence principale ou non.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <span class="badge badge-danger">Obligatoire</span>
+            <span class="dem-chevron" id="chev-1">▼</span>
+          </div>
+        </div>
+        <div class="dem-panel" id="panel-1">
+          <div class="dem-info-box">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 Pourquoi cette démarche ?</div>
+            <p style="font-size:12.5px;line-height:1.7;color:var(--text-muted)">
+              L'article L324-1-1 du Code du tourisme impose à tout propriétaire de déclarer son meublé de tourisme auprès de la mairie de la commune où est situé le bien.
+              Cette déclaration est <strong>gratuite</strong> et vous permet d'obtenir un <strong>numéro de déclaration</strong> à afficher sur vos annonces Airbnb/Booking.
+              Sans ce numéro, vous risquez une amende de <strong>450 €</strong>.
+            </p>
+          </div>
+
+          <div style="font-size:13px;font-weight:700;margin:16px 0 10px">Formulaire Cerfa 14004 pré-rempli</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="form-group">
+              <label class="form-label">Prénom du déclarant</label>
+              <input class="form-control" id="cerfa-prenom" placeholder="Sébastien">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nom du déclarant</label>
+              <input class="form-control" id="cerfa-nom" placeholder="Lefebvre">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Adresse du déclarant</label>
+              <input class="form-control" id="cerfa-adresse-decl" placeholder="12 rue de la Paix, 62620 Barlin">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Téléphone</label>
+              <input class="form-control" id="cerfa-tel" placeholder="06 12 34 56 78">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Adresse du bien loué</label>
+              <input class="form-control" id="cerfa-adresse-bien" placeholder="15 rue du Château, 62620 Barlin">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Commune du bien</label>
+              <input class="form-control" id="cerfa-commune" placeholder="Barlin">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Type de logement</label>
+              <select class="form-control" id="cerfa-type">
+                <option value="Appartement">Appartement</option>
+                <option value="Maison">Maison</option>
+                <option value="Studio">Studio</option>
+                <option value="Villa">Villa</option>
+                <option value="Chambre">Chambre privée</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Capacité d'accueil (personnes)</label>
+              <input class="form-control" type="number" id="cerfa-capacite" placeholder="4">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Surface habitable (m²)</label>
+              <input class="form-control" type="number" id="cerfa-surface" placeholder="45">
+            </div>
+            <div class="form-group">
+              <label class="form-label">C'est votre résidence principale ?</label>
+              <select class="form-control" id="cerfa-rp">
+                <option value="oui">Oui</option>
+                <option value="non">Non</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:4px">
+            <label class="form-label">Périodes de location prévues</label>
+            <input class="form-control" id="cerfa-periodes" placeholder="Toute l'année / Juillet-Août / Week-ends uniquement...">
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="genererCerfa()">📄 Générer le Cerfa PDF</button>
+            <button class="btn btn-outline" onclick="prefillCerfa()">🔄 Pré-remplir depuis le bien sélectionné</button>
+          </div>
+
+          <div class="dem-info-box" style="margin-top:16px;background:#f0fdf4;border-color:#86efac">
+            <div style="font-size:12.5px;font-weight:600;color:#166534;margin-bottom:6px">✅ Comment déposer le Cerfa ?</div>
+            <div style="font-size:12px;line-height:1.8;color:#166534">
+              <strong>Option 1 — En mairie :</strong> Déposez le formulaire au guichet de la mairie de la commune du bien. Gratuit, immédiat.<br>
+              <strong>Option 2 — Par courrier :</strong> Envoyez en recommandé avec AR à la mairie concernée.<br>
+              <strong>Option 3 — En ligne :</strong> Certaines communes acceptent la déclaration via leur site ou via le portail <a href="https://www.service-public.fr/particuliers/vosdroits/R60441" target="_blank" style="color:var(--primary)">service-public.fr</a>.<br>
+              Vous recevrez un <strong>récépissé de déclaration</strong> avec votre numéro à conserver et afficher sur vos annonces.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 2 — Numéro d'enregistrement -->
+      <div class="dem-block" id="dem-2">
+        <div class="dem-header" onclick="toggleDem(2)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="check-box" id="dem-box-2"></div>
+            <div>
+              <div class="check-title">Numéro d'enregistrement</div>
+              <div class="check-desc">Obligatoire dans certaines communes — vérification automatique ci-dessous.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <span class="badge badge-warning">Selon commune</span>
+            <span class="dem-chevron" id="chev-2">▼</span>
+          </div>
+        </div>
+        <div class="dem-panel" id="panel-2">
+          <div class="dem-info-box">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔍 C'est quoi exactement ?</div>
+            <p style="font-size:12.5px;line-height:1.7;color:var(--text-muted)">
+              En plus de la déclaration mairie, certaines communes exigent un <strong>numéro d'enregistrement</strong> (différent du numéro de déclaration).
+              Ce numéro est délivré par la mairie après instruction de votre dossier.
+              Il est obligatoire dans les <strong>communes de plus de 200 000 habitants</strong> et dans les <strong>zones tendues</strong> définies par décret.
+              Il doit figurer sur toutes vos annonces en ligne sous peine d'amende de <strong>5 000 €</strong>.
+            </p>
+          </div>
+
+          <div style="font-size:13px;font-weight:700;margin:16px 0 10px">Vérifier votre commune</div>
+          <div style="display:flex;gap:10px;margin-bottom:14px">
+            <input class="form-control" id="dem-commune-check" placeholder="Ex: Lens, Arras, Lille..." style="flex:1">
+            <button class="btn btn-primary" onclick="checkCommune()">Vérifier</button>
+          </div>
+          <div id="commune-result" style="display:none"></div>
+
+          <div class="dem-info-box" style="margin-top:12px">
+            <div style="font-size:12.5px;font-weight:600;margin-bottom:6px">📍 Communes du Pas-de-Calais concernées</div>
+            <div style="font-size:12px;line-height:1.8;color:var(--text-muted)">
+              Dans le Pas-de-Calais, <strong>aucune commune n'est en zone tendue</strong> au sens strict (population &lt; 200 000 hab.).
+              La déclaration Cerfa 14004 suffit dans la grande majorité des cas.<br>
+              <strong>Exception :</strong> Si votre bien est à <strong>Calais</strong> ou si la commune a délibéré pour imposer l'enregistrement, vérifiez directement auprès de la mairie.<br>
+              <a href="https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000036435047" target="_blank" style="color:var(--primary);font-size:11px">Voir l'article L324-1-1 Code du tourisme →</a>
+            </div>
+          </div>
+
+          <div class="dem-info-box" style="margin-top:12px;background:#fefce8;border-color:#fde047">
+            <div style="font-size:12.5px;font-weight:600;color:#854d0e;margin-bottom:6px">⚠️ Cas des grandes villes si vous y avez un bien</div>
+            <div style="font-size:12px;line-height:1.8;color:#854d0e">
+              <strong>Paris, Lyon, Bordeaux, Nice, Strasbourg, Montpellier...</strong> → Numéro d'enregistrement obligatoire.<br>
+              Démarche à faire sur le site de la mairie concernée avant toute mise en location.<br>
+              Délai : 1 à 4 semaines selon la commune.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 3 — Changement d'usage -->
+      <div class="dem-block" id="dem-3">
+        <div class="dem-header" onclick="toggleDem(3)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="check-box" id="dem-box-3"></div>
+            <div>
+              <div class="check-title">Autorisation de changement d'usage</div>
+              <div class="check-desc">Uniquement si le bien n'est pas votre résidence principale.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <span class="badge badge-warning">Si résidence secondaire</span>
+            <span class="dem-chevron" id="chev-3">▼</span>
+          </div>
+        </div>
+        <div class="dem-panel" id="panel-3">
+          <div class="dem-info-box">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">🏠 Résidence principale ou secondaire ?</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px">
+                <div style="font-size:12.5px;font-weight:700;color:#166534;margin-bottom:6px">✅ Résidence principale</div>
+                <div style="font-size:12px;color:#166534;line-height:1.6">Vous y habitez + 8 mois/an.<br>Cerfa 14004 suffit.<br>Limite : 120 nuits/an.<br><strong>Aucune autorisation supplémentaire.</strong></div>
+              </div>
+              <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px">
+                <div style="font-size:12.5px;font-weight:700;color:#991b1b;margin-bottom:6px">⚠️ Résidence secondaire</div>
+                <div style="font-size:12px;color:#991b1b;line-height:1.6">Vous n'y habitez pas + 8 mois/an.<br>Autorisation de changement d'usage obligatoire.<br>Pas de limite de nuits.<br><strong>Dossier à déposer en mairie.</strong></div>
               </div>
             </div>
-            <div class="check-item" id="dem-2" onclick="toggleDem(2)">
-              <div class="check-box" id="dem-box-2"></div>
-              <div>
-                <div class="check-title">Numéro d'enregistrement (communes soumises)</div>
-                <div class="check-desc">Obligatoire dans les communes &gt; 200 000 habitants et zones tendues (loi ELAN). À vérifier auprès de votre mairie. Doit figurer sur toutes vos annonces en ligne.</div>
-                <span class="badge badge-warning check-tag">Selon commune</span>
+            <div style="font-size:12px;line-height:1.7;color:var(--text-muted)">
+              <strong>Dossier à fournir :</strong> Formulaire de demande (disponible en mairie) + justificatif de propriété + plan du logement + description de l'usage prévu.<br>
+              <strong>Délai :</strong> 1 à 3 mois selon la commune.<br>
+              <strong>Coût :</strong> Gratuit dans la plupart des communes. Certaines grandes villes imposent une compensation (achat de m² commerciaux équivalents).<br>
+              <strong>Attention :</strong> Louer sans autorisation = amende jusqu'à <strong>50 000 €</strong> dans les communes qui l'exigent.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 4 — Taxe de séjour -->
+      <div class="dem-block" id="dem-4">
+        <div class="dem-header" onclick="toggleDem(4)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="check-box" id="dem-box-4"></div>
+            <div>
+              <div class="check-title">Taxe de séjour</div>
+              <div class="check-desc">À collecter par réservation et reverser à la commune.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <span class="badge badge-danger">Obligatoire</span>
+            <span class="dem-chevron" id="chev-4">▼</span>
+          </div>
+        </div>
+        <div class="dem-panel" id="panel-4">
+          <div class="dem-info-box">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">💶 Comment ça fonctionne ?</div>
+            <p style="font-size:12.5px;line-height:1.7;color:var(--text-muted)">
+              La taxe de séjour est due par les voyageurs et collectée par le loueur (ou automatiquement par Airbnb/Booking si convention avec la commune).
+              Le montant est fixé par la commune entre <strong>0,20€ et 5€ par nuit et par personne</strong>.
+            </p>
+          </div>
+
+          <div style="font-size:13px;font-weight:700;margin:16px 0 10px">Calculateur taxe de séjour</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+            <div class="form-group">
+              <label class="form-label">Taux commune (€/nuit/pers)</label>
+              <input class="form-control" type="number" step="0.01" id="taxe-taux" placeholder="0.50" oninput="calcTaxe()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nb nuits</label>
+              <input class="form-control" type="number" id="taxe-nuits" placeholder="3" oninput="calcTaxe()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nb personnes</label>
+              <input class="form-control" type="number" id="taxe-pers" placeholder="2" oninput="calcTaxe()">
+            </div>
+          </div>
+          <div id="taxe-result" style="display:none;background:var(--primary-light);border-radius:8px;padding:12px;font-size:14px;font-weight:700;color:var(--primary);margin-bottom:16px"></div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="dem-info-box" style="background:#f0fdf4;border-color:#86efac">
+              <div style="font-size:12.5px;font-weight:600;color:#166534;margin-bottom:6px">✅ Airbnb/Booking collectent</div>
+              <div style="font-size:12px;color:#166534;line-height:1.6">
+                Si votre commune a signé une convention avec la plateforme, la taxe est collectée et reversée automatiquement.<br>
+                Vérifier sur le site de votre mairie ou en contactant le service tourisme.
               </div>
             </div>
-            <div class="check-item" id="dem-3" onclick="toggleDem(3)">
-              <div class="check-box" id="dem-box-3"></div>
-              <div>
-                <div class="check-title">Autorisation de changement d'usage</div>
-                <div class="check-desc">Obligatoire si le bien n'est PAS votre résidence principale. Demande à déposer en mairie. Certaines communes refusent ou limitent les locations touristiques.</div>
-                <span class="badge badge-warning check-tag">Si résidence secondaire</span>
-              </div>
-            </div>
-            <div class="check-item" id="dem-4" onclick="toggleDem(4)">
-              <div class="check-box" id="dem-box-4"></div>
-              <div>
-                <div class="check-title">Convention taxe de séjour avec la commune</div>
-                <div class="check-desc">Vérifiez si votre commune a signé une convention avec Airbnb/Booking (collecte automatique). Sinon, vous devez collecter vous-même (0,20€ à 5€/nuit/personne) et reverser trimestriellement.</div>
-                <span class="badge badge-info check-tag">À vérifier</span>
-              </div>
-            </div>
-            <div class="check-item" id="dem-5" onclick="toggleDem(5)">
-              <div class="check-box" id="dem-box-5"></div>
-              <div>
-                <div class="check-title">Assurance propriétaire non occupant (PNO)</div>
-                <div class="check-desc">Indispensable. Couvre les dommages pendant les périodes de location. Prévenez votre assureur que le bien est loué en courte durée — certains contrats l'excluent.</div>
-                <span class="badge badge-danger check-tag">Obligatoire</span>
-              </div>
-            </div>
-            <div class="check-item" id="dem-6" onclick="toggleDem(6)">
-              <div class="check-box" id="dem-box-6"></div>
-              <div>
-                <div class="check-title">Déclaration revenus (BIC) — régime choisi</div>
-                <div class="check-desc">Les revenus de location meublée courte durée sont imposés dans la catégorie BIC. Choisissez micro-BIC (déclaration simplifiée) ou régime réel (comptabilité). Déclaration annuelle avec votre IR.</div>
-                <span class="badge badge-danger check-tag">Obligatoire</span>
-              </div>
-            </div>
-            <div class="check-item" id="dem-7" onclick="toggleDem(7)">
-              <div class="check-box" id="dem-box-7"></div>
-              <div>
-                <div class="check-title">Classement Atout France (optionnel mais recommandé)</div>
-                <div class="check-desc">Classement 1 à 5 étoiles par un organisme agréé (~200-300€). Avantage fiscal majeur : abattement micro-BIC de 50% au lieu de 30%, plafond 77 700€ au lieu de 15 000€.</div>
-                <span class="badge badge-success check-tag">Recommandé</span>
-              </div>
-            </div>
-            <div class="check-item" id="dem-8" onclick="toggleDem(8)">
-              <div class="check-box" id="dem-box-8"></div>
-              <div>
-                <div class="check-title">Règles de copropriété vérifiées</div>
-                <div class="check-desc">Si le bien est en copropriété, vérifiez que le règlement de copropriété autorise la location touristique. Certains règlements l'interdisent ou la soumettent à accord des copropriétaires.</div>
-                <span class="badge badge-warning check-tag">Si copropriété</span>
+            <div class="dem-info-box" style="background:#fef2f2;border-color:#fca5a5">
+              <div style="font-size:12.5px;font-weight:600;color:#991b1b;margin-bottom:6px">⚠️ Vous collectez vous-même</div>
+              <div style="font-size:12px;color:#991b1b;line-height:1.6">
+                Collectez auprès du voyageur à l'arrivée.<br>
+                Reversez à la mairie : <strong>trimestriellement</strong> (jan/avr/juil/oct).<br>
+                Tenez un registre des séjours.
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 5 — Assurance PNO -->
+      <div class="dem-block" id="dem-5">
+        <div class="dem-header" onclick="toggleDem(5)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="check-box" id="dem-box-5"></div>
+            <div>
+              <div class="check-title">Assurance propriétaire non occupant (PNO)</div>
+              <div class="check-desc">Indispensable — à vérifier avec votre assureur actuel.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <span class="badge badge-danger">Obligatoire</span>
+            <span class="dem-chevron" id="chev-5">▼</span>
+          </div>
+        </div>
+        <div class="dem-panel" id="panel-5">
+          <div class="dem-info-box">
+            <div style="font-size:13px;font-weight:600;margin-bottom:10px">✅ Checklist à vérifier avec votre assureur</div>
+            <div style="font-size:12.5px;line-height:1.8;color:var(--text-muted)">
+              Appelez votre assureur et posez ces questions précises :
+            </div>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+              <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;cursor:pointer">
+                <input type="checkbox" id="assur-1" style="margin-top:3px"> Mon contrat couvre-t-il la <strong>location meublée de tourisme courte durée</strong> ?
+              </label>
+              <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;cursor:pointer">
+                <input type="checkbox" id="assur-2" style="margin-top:3px"> Suis-je couvert en cas de <strong>dégradations causées par un locataire</strong> ?
+              </label>
+              <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;cursor:pointer">
+                <input type="checkbox" id="assur-3" style="margin-top:3px"> La <strong>responsabilité civile</strong> est-elle incluse pour les voyageurs ?
+              </label>
+              <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;cursor:pointer">
+                <input type="checkbox" id="assur-4" style="margin-top:3px"> Y a-t-il une <strong>exclusion de garantie</strong> pour les locations de courte durée ?
+              </label>
+              <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;cursor:pointer">
+                <input type="checkbox" id="assur-5" style="margin-top:3px"> Le <strong>contenu du logement</strong> (meubles, électroménager) est-il assuré ?
+              </label>
+            </div>
+          </div>
+          <div class="dem-info-box" style="margin-top:12px;background:#fef2f2;border-color:#fca5a5">
+            <div style="font-size:12.5px;font-weight:600;color:#991b1b;margin-bottom:6px">⚠️ Si votre assureur ne couvre pas</div>
+            <div style="font-size:12px;color:#991b1b;line-height:1.6">
+              Souscrivez une assurance PNO spécifique courte durée. Assureurs spécialisés : <strong>Luko, Lovys, Hiscox, April</strong>.<br>
+              AirCover (Airbnb) couvre jusqu'à 3M€ de dommages mais ne remplace PAS une assurance dédiée.<br>
+              Coût moyen PNO : <strong>100 à 300€/an</strong> selon le bien.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 6 — Déclaration BIC -->
+      <div class="dem-block" id="dem-6">
+        <div class="dem-header" onclick="toggleDem(6)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="check-box" id="dem-box-6"></div>
+            <div>
+              <div class="check-title">Déclaration revenus BIC</div>
+              <div class="check-desc">Revenus à déclarer chaque année avec votre impôt sur le revenu.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <span class="badge badge-danger">Obligatoire</span>
+            <span class="dem-chevron" id="chev-6">▼</span>
+          </div>
+        </div>
+        <div class="dem-panel" id="panel-6">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+            <div class="dem-info-box">
+              <div style="font-size:12.5px;font-weight:700;margin-bottom:8px">📝 Micro-BIC (simplifié)</div>
+              <div style="font-size:12px;line-height:1.7;color:var(--text-muted)">
+                <strong>Formulaire 2042-C-PRO</strong> (case 5ND pour non classé, 5NG pour classé).<br>
+                Déclarez votre <strong>CA brut total</strong>.<br>
+                L'abattement (30% ou 50%) est appliqué automatiquement.<br>
+                <strong>Aucune comptabilité requise.</strong>
+              </div>
+            </div>
+            <div class="dem-info-box">
+              <div style="font-size:12.5px;font-weight:700;margin-bottom:8px">📊 Régime réel</div>
+              <div style="font-size:12px;line-height:1.7;color:var(--text-muted)">
+                <strong>Formulaire 2031</strong> + liasse fiscale.<br>
+                Tenez une comptabilité des recettes et charges.<br>
+                Déduisez : amortissements, travaux, intérêts d'emprunt, charges de copro...<br>
+                <strong>Souvent plus avantageux si crédit immobilier.</strong>
+              </div>
+            </div>
+          </div>
+          <div class="dem-info-box" style="background:#f0f9ff;border-color:#7dd3fc">
+            <div style="font-size:12.5px;font-weight:600;color:#0369a1;margin-bottom:6px">💡 Rappel loi Le Meur 2026</div>
+            <div style="font-size:12px;color:#0369a1;line-height:1.7">
+              Non classé : plafond <strong>15 000€</strong> / abattement <strong>30%</strong>.<br>
+              Classé : plafond <strong>77 700€</strong> / abattement <strong>50%</strong>.<br>
+              Au-delà → régime réel obligatoire.<br>
+              Utilisez le <a onclick="showPage('fiscalite')" style="cursor:pointer;text-decoration:underline">simulateur fiscal</a> pour comparer vos deux options.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 7 — Classement Atout France -->
+      <div class="dem-block" id="dem-7">
+        <div class="dem-header" onclick="toggleDem(7)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="check-box" id="dem-box-7"></div>
+            <div>
+              <div class="check-title">Classement Atout France (optionnel mais très recommandé)</div>
+              <div class="check-desc">Passez de 30% à 50% d'abattement fiscal — rentable dès 8 000€ de CA.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <span class="badge badge-success">Recommandé</span>
+            <span class="dem-chevron" id="chev-7">▼</span>
+          </div>
+        </div>
+        <div class="dem-panel" id="panel-7">
+          <div class="dem-info-box">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">⭐ Simulateur gain du classement</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div class="form-group">
+                <label class="form-label">Votre CA annuel (€)</label>
+                <input class="form-control" type="number" id="class-ca" placeholder="12000" oninput="calcClassement()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">TMI</label>
+                <select class="form-control" id="class-tmi" onchange="calcClassement()">
+                  <option value="11">11%</option>
+                  <option value="30" selected>30%</option>
+                  <option value="41">41%</option>
+                  <option value="45">45%</option>
+                </select>
+              </div>
+            </div>
+            <div id="classement-result" style="display:none"></div>
+          </div>
+
+          <div class="dem-info-box" style="margin-top:12px">
+            <div style="font-size:12.5px;font-weight:600;margin-bottom:8px">📋 Procédure de classement</div>
+            <div style="font-size:12px;line-height:1.8;color:var(--text-muted)">
+              <strong>1.</strong> Choisir un <a href="https://www.atout-france.fr/services/classement-des-meublés-de-tourisme" target="_blank" style="color:var(--primary)">organisme agréé Atout France</a> (Gîtes de France, Clévacances, bureau Véritas...)<br>
+              <strong>2.</strong> Demander une visite de classement (~200-300€ selon organisme)<br>
+              <strong>3.</strong> L'organisme inspecte le bien selon une grille de 112 critères<br>
+              <strong>4.</strong> Certificat de classement délivré → valable <strong>5 ans</strong><br>
+              <strong>5.</strong> Déclarer le classement à la mairie (mise à jour du Cerfa)<br>
+              <strong>Délai :</strong> 2 à 6 semaines. <strong>Renouvellement</strong> possible à l'identique ou avec changement d'étoiles.
+            </div>
+          </div>
+
+          <div class="dem-info-box" style="margin-top:12px;background:#f0fdf4;border-color:#86efac">
+            <div style="font-size:12.5px;font-weight:600;color:#166534;margin-bottom:6px">🏆 Organismes agréés dans le Pas-de-Calais</div>
+            <div style="font-size:12px;color:#166534;line-height:1.8">
+              • <a href="https://www.gites-de-france.com" target="_blank" style="color:#166534;font-weight:600">Gîtes de France Pas-de-Calais</a> — classement + réseau de location<br>
+              • <a href="https://www.clevacances.com" target="_blank" style="color:#166534;font-weight:600">Clévacances</a> — alternative aux Gîtes de France<br>
+              • Bureau Véritas / SGS / SOCOTEC — organismes indépendants<br>
+              • Office de tourisme de votre commune (selon convention locale)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 8 — Copropriété -->
+      <div class="dem-block" id="dem-8">
+        <div class="dem-header" onclick="toggleDem(8)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="check-box" id="dem-box-8"></div>
+            <div>
+              <div class="check-title">Règlement de copropriété</div>
+              <div class="check-desc">À vérifier si le bien est en immeuble collectif.</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <span class="badge badge-warning">Si copropriété</span>
+            <span class="dem-chevron" id="chev-8">▼</span>
+          </div>
+        </div>
+        <div class="dem-panel" id="panel-8">
+          <div class="dem-info-box">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">📋 Que vérifier dans le règlement ?</div>
+            <div style="font-size:12.5px;line-height:1.8;color:var(--text-muted)">
+              <strong>1. Clause d'habitation bourgeoise :</strong> Certains règlements prévoient que les lots ne peuvent être utilisés qu'à usage d'habitation "bourgeoise" — les locations touristiques peuvent être considérées comme une activité commerciale et donc interdites.<br><br>
+              <strong>2. Clause de destination :</strong> Le règlement peut préciser la destination de l'immeuble (habitation, commercial, mixte). Si "habitation exclusive", la location courte durée est risquée.<br><br>
+              <strong>3. Que faire si c'est interdit ?</strong> Vous pouvez soumettre une résolution en assemblée générale pour modifier le règlement (majorité des 2/3 requise). Si refus, la location touristique est impossible légalement.<br><br>
+              <strong>4. En l'absence de clause restrictive :</strong> La location meublée de tourisme est autorisée par défaut.
+            </div>
+          </div>
+          <div class="dem-info-box" style="margin-top:12px;background:#f0f9ff;border-color:#7dd3fc">
+            <div style="font-size:12px;color:#0369a1;line-height:1.6">
+              💡 <strong>Astuce :</strong> Même si le règlement l'autorise, informez le syndic de votre activité et vérifiez l'assurance de l'immeuble. Certains syndics peuvent demander une participation aux frais d'entretien accrus.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MODAL CERFA PDF (overlay) -->
+    <div class="modal-overlay" id="modal-cerfa-ok">
+      <div class="modal" style="max-width:400px">
+        <div class="modal-header">
+          <span class="modal-title">Cerfa 14004 généré</span>
+          <button class="modal-close" onclick="closeModal('modal-cerfa-ok')">×</button>
+        </div>
+        <div class="modal-body" style="text-align:center;padding:32px">
+          <div style="font-size:48px;margin-bottom:12px">📄</div>
+          <div style="font-size:15px;font-weight:700;margin-bottom:8px">Votre Cerfa a été téléchargé</div>
+          <div style="font-size:13px;color:var(--text-muted);line-height:1.7;margin-bottom:20px">
+            Le fichier PDF est prêt. Vous pouvez maintenant :<br>
+            le déposer en mairie, l'envoyer par courrier recommandé,<br>
+            ou le transmettre via le site de votre commune.
+          </div>
+          <button class="btn btn-primary" onclick="closeModal('modal-cerfa-ok');demStates[1]=true;localStorage.setItem('bnb_demarches',JSON.stringify(demStates));renderDem()">
+            Marquer comme complété
+          </button>
         </div>
       </div>
     </div>
@@ -1366,6 +1792,8 @@ function updateSelects() {
   document.getElementById('filter-bien').innerHTML = opts;
   document.getElementById('resa-bien-id').innerHTML = '<option value="">Sélectionner un bien</option>' + biens.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
   document.getElementById('annonce-bien').innerHTML = '<option value="">Sélectionner un bien</option>' + biens.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
+  const demSel = document.getElementById('dem-bien-select');
+  if (demSel) demSel.innerHTML = '<option value="">-- Sélectionner un bien --</option>' + biens.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
 }
 
 // FISCALITE
@@ -1425,22 +1853,265 @@ function calcFiscal() {
   `;
 }
 
-// DEMARCHES
+// DEMARCHES ENRICHIES
 const demStates = JSON.parse(localStorage.getItem('bnb_demarches') || '{}');
+const demOpen = {};
+
 function toggleDem(n) {
+  // Toggle panneau ouvert/fermé
+  demOpen[n] = !demOpen[n];
+  const panel = document.getElementById('panel-' + n);
+  const chev = document.getElementById('chev-' + n);
+  if (panel) panel.classList.toggle('open', !!demOpen[n]);
+  if (chev) chev.classList.toggle('open', !!demOpen[n]);
+}
+
+function markDemDone(n) {
   demStates[n] = !demStates[n];
   localStorage.setItem('bnb_demarches', JSON.stringify(demStates));
   renderDem();
 }
+
 function renderDem() {
   let done = 0;
   for (let i = 1; i <= 8; i++) {
-    const item = document.getElementById('dem-' + i);
+    const block = document.getElementById('dem-' + i);
     const box = document.getElementById('dem-box-' + i);
-    if (demStates[i]) { item.classList.add('done'); box.textContent = '✓'; done++; }
-    else { item.classList.remove('done'); box.textContent = ''; }
+    if (!block || !box) continue;
+    if (demStates[i]) {
+      block.classList.add('done-block');
+      box.textContent = '✓';
+      box.style.background = 'var(--success)';
+      box.style.borderColor = 'var(--success)';
+      box.style.color = 'white';
+      done++;
+    } else {
+      block.classList.remove('done-block');
+      box.textContent = '';
+      box.style.background = '';
+      box.style.borderColor = '';
+      box.style.color = '';
+    }
   }
-  document.getElementById('demarches-progress').textContent = `${done} / 8 complétées`;
+  const prog = document.getElementById('demarches-progress');
+  if (prog) prog.textContent = done + ' / 8 complétées';
+}
+
+function onDemBienChange() {
+  const bienId = document.getElementById('dem-bien-select').value;
+  const bien = biens.find(b => b.id === bienId);
+  const info = document.getElementById('dem-bien-info');
+  if (bien) {
+    info.textContent = bien.adresse || '';
+    prefillCerfa(bien);
+  } else {
+    info.textContent = '';
+  }
+}
+
+function prefillCerfa(bien) {
+  if (!bien) {
+    const bienId = document.getElementById('dem-bien-select').value;
+    bien = biens.find(b => b.id === bienId);
+  }
+  if (!bien) return;
+  const params = JSON.parse(localStorage.getItem('bnb_params') || '{}');
+  if (params.nom) {
+    const parts = params.nom.trim().split(' ');
+    document.getElementById('cerfa-prenom').value = parts[0] || '';
+    document.getElementById('cerfa-nom').value = parts.slice(1).join(' ') || '';
+  }
+  if (params.adresse) document.getElementById('cerfa-adresse-decl').value = params.adresse;
+  if (params.tel) document.getElementById('cerfa-tel').value = params.tel;
+  if (bien.adresse) document.getElementById('cerfa-adresse-bien').value = bien.adresse;
+  if (bien.adresse) {
+    const parts = bien.adresse.split(',');
+    if (parts.length > 1) {
+      const communePart = parts[parts.length - 1].trim();
+      document.getElementById('cerfa-commune').value = communePart.replace(/^\d{5}\s*/, '');
+    }
+  }
+  if (bien.type) document.getElementById('cerfa-type').value = bien.type;
+  if (bien.capacite) document.getElementById('cerfa-capacite').value = bien.capacite;
+}
+
+function checkCommune() {
+  const commune = document.getElementById('dem-commune-check').value.trim().toLowerCase();
+  const result = document.getElementById('commune-result');
+  if (!commune) return;
+
+  // Liste des communes françaises soumises à enregistrement obligatoire
+  const communesSoumises = [
+    'paris', 'lyon', 'marseille', 'bordeaux', 'nice', 'toulouse', 'nantes',
+    'strasbourg', 'montpellier', 'rennes', 'lille', 'annecy', 'biarritz',
+    'saint-malo', 'arcachon', 'cannes', 'antibes', 'juan-les-pins',
+    'menton', 'saint-jean-cap-ferrat', 'megeve', 'chamonix', 'courchevel',
+    'val-d-isere', 'vars', 'la-rochelle', 'saint-jean-de-luz', 'brest',
+    'tours', 'grenoble', 'dijon', 'reims', 'le-havre', 'saint-etienne',
+    'toulon', 'aix-en-provence', 'versailles', 'caen', 'limoges', 'amiens'
+  ];
+  const pasCalaisSoumises = ['calais'];
+  const communeNorm = commune.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
+  const isSoumise = communesSoumises.some(c => communeNorm.includes(c) || c.includes(communeNorm));
+  const isPasCalais = pasCalaisSoumises.some(c => communeNorm.includes(c));
+
+  result.style.display = 'block';
+  if (isSoumise) {
+    result.innerHTML = `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:#991b1b;margin-bottom:4px">⚠️ Numéro d'enregistrement requis</div>
+      <div style="font-size:12px;color:#991b1b;line-height:1.6">
+        <strong>${commune.charAt(0).toUpperCase() + commune.slice(1)}</strong> fait partie des communes soumises à l'enregistrement obligatoire.<br>
+        Vous devez obtenir un numéro d'enregistrement <strong>avant</strong> de publier votre annonce.<br>
+        <a href="https://www.${communeNorm}.fr" target="_blank" style="color:#991b1b;font-weight:600">Démarche sur le site de la mairie →</a>
+      </div>
+    </div>`;
+  } else {
+    result.innerHTML = `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:#166534;margin-bottom:4px">✅ Déclaration Cerfa suffit</div>
+      <div style="font-size:12px;color:#166534;line-height:1.6">
+        <strong>${commune.charAt(0).toUpperCase() + commune.slice(1)}</strong> n'est pas soumise à l'enregistrement obligatoire (population &lt; 200 000 hab., hors zone tendue).<br>
+        La déclaration Cerfa 14004 en mairie est suffisante.<br>
+        ${isPasCalais ? '<strong>Note Calais :</strong> Vérifiez toutefois auprès de la mairie si une délibération locale a été prise.' : 'Vérifiez tout de même auprès de votre mairie en cas de doute.'}
+      </div>
+    </div>`;
+  }
+}
+
+function calcTaxe() {
+  const taux = parseFloat(document.getElementById('taxe-taux').value) || 0;
+  const nuits = parseInt(document.getElementById('taxe-nuits').value) || 0;
+  const pers = parseInt(document.getElementById('taxe-pers').value) || 0;
+  const result = document.getElementById('taxe-result');
+  if (!taux || !nuits || !pers) { result.style.display = 'none'; return; }
+  const total = taux * nuits * pers;
+  result.style.display = 'block';
+  result.innerHTML = `Taxe de séjour à collecter : <strong>${total.toFixed(2).replace('.', ',')} €</strong> (${taux}€ × ${nuits} nuits × ${pers} pers.)`;
+}
+
+function calcClassement() {
+  const ca = parseFloat(document.getElementById('class-ca').value) || 0;
+  const tmi = parseInt(document.getElementById('class-tmi').value) || 30;
+  const result = document.getElementById('classement-result');
+  if (!ca) { result.style.display = 'none'; return; }
+  const taux_cs = 0.172;
+  const base_nc = ca * 0.70; // Non classé : abattement 30%
+  const base_cl = ca * 0.50; // Classé : abattement 50%
+  const impot_nc = base_nc * (tmi / 100 + taux_cs);
+  const impot_cl = base_cl * (tmi / 100 + taux_cs);
+  const economie = impot_nc - impot_cl;
+  const retour = economie > 0 ? Math.ceil(250 / economie * 12) : 0;
+  result.style.display = 'block';
+  result.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:11px;color:#991b1b;font-weight:600">Non classé (30%)</div>
+        <div style="font-size:20px;font-weight:700;color:#991b1b">${Math.round(impot_nc).toLocaleString('fr-FR')} €</div>
+        <div style="font-size:11px;color:#991b1b">charges + IR</div>
+      </div>
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:11px;color:#166534;font-weight:600">Classé (50%)</div>
+        <div style="font-size:20px;font-weight:700;color:#166534">${Math.round(impot_cl).toLocaleString('fr-FR')} €</div>
+        <div style="font-size:11px;color:#166534">charges + IR</div>
+      </div>
+    </div>
+    <div style="background:var(--primary-light);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--primary)">
+      <div style="font-size:13px;font-weight:700;color:var(--primary)">Économie annuelle : ${Math.round(economie).toLocaleString('fr-FR')} €</div>
+      <div style="font-size:12px;color:var(--primary);margin-top:3px">Classement rentabilisé en ${retour > 0 ? retour + ' mois' : 'immédiatement'} (~250€ de frais)</div>
+    </div>`;
+}
+
+function genererCerfa() {
+  const prenom = document.getElementById('cerfa-prenom').value;
+  const nom = document.getElementById('cerfa-nom').value;
+  const addrDecl = document.getElementById('cerfa-adresse-decl').value;
+  const tel = document.getElementById('cerfa-tel').value;
+  const addrBien = document.getElementById('cerfa-adresse-bien').value;
+  const commune = document.getElementById('cerfa-commune').value;
+  const type = document.getElementById('cerfa-type').value;
+  const capacite = document.getElementById('cerfa-capacite').value;
+  const surface = document.getElementById('cerfa-surface').value;
+  const rp = document.getElementById('cerfa-rp').value;
+  const periodes = document.getElementById('cerfa-periodes').value;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y = 20;
+  const m = 20;
+
+  const h = (t, s=12, style='bold', color=[59,91,219]) => {
+    doc.setFontSize(s).setFont('helvetica', style).setTextColor(...color);
+    doc.text(t, m, y); y += s * 0.5 + 3;
+  };
+  const t = (t, s=10, style='normal') => {
+    doc.setFontSize(s).setFont('helvetica', style).setTextColor(30, 30, 46);
+    const lines = doc.splitTextToSize(t, 170);
+    doc.text(lines, m, y); y += lines.length * (s * 0.4 + 2);
+  };
+  const field = (label, val) => {
+    doc.setFontSize(9).setFont('helvetica', 'bold').setTextColor(100, 100, 120);
+    doc.text(label.toUpperCase(), m, y); y += 5;
+    doc.setFontSize(10).setFont('helvetica', 'normal').setTextColor(30, 30, 46);
+    doc.text(val || '___________________________', m, y);
+    doc.setDrawColor(200, 200, 200); doc.line(m, y + 1, 190, y + 1);
+    y += 10;
+  };
+  const gap = (n=6) => { y += n; };
+  const hr = () => { doc.setDrawColor(59,91,219); doc.setLineWidth(0.5); doc.line(m, y, 190, y); gap(5); };
+
+  // En-tête
+  doc.setFillColor(59, 91, 219); doc.rect(0, 0, 210, 28, 'F');
+  doc.setFontSize(14).setFont('helvetica', 'bold').setTextColor(255, 255, 255);
+  doc.text('DÉCLARATION DE MEUBLÉ DE TOURISME', m, 12);
+  doc.setFontSize(9).setFont('helvetica', 'normal');
+  doc.text('Cerfa n° 14004 — Code du tourisme art. L324-1-1 et R324-1', m, 20);
+  y = 38;
+
+  h('1. IDENTITÉ DU DÉCLARANT', 11);
+  gap(2);
+  field('Prénom', prenom);
+  field('Nom', nom);
+  field('Adresse du déclarant', addrDecl);
+  field('Téléphone', tel);
+  gap(4); hr();
+
+  h('2. IDENTIFICATION DU LOGEMENT', 11);
+  gap(2);
+  field('Adresse du bien loué', addrBien);
+  field('Commune', commune);
+  field('Type de logement', type);
+  field('Capacité d\'accueil (nombre de personnes)', capacite);
+  field('Surface habitable (m²)', surface);
+  gap(4); hr();
+
+  h('3. NATURE DE L\'OCCUPATION', 11);
+  gap(2);
+  t(`Ce logement constitue ${rp === 'oui' ? 'MA RÉSIDENCE PRINCIPALE' : 'UNE RÉSIDENCE SECONDAIRE'}.`, 10, 'bold');
+  gap(4);
+  field('Périodes de location prévues', periodes);
+  gap(4); hr();
+
+  h('4. ENGAGEMENT DU DÉCLARANT', 11);
+  gap(2);
+  t('Je soussigné(e) déclare exactes les informations figurant dans la présente déclaration et m\'engage à respecter les dispositions du Code du tourisme relatives aux meublés de tourisme, notamment les règles relatives à la durée maximale de location (120 nuits par an pour une résidence principale).');
+  gap(10); hr();
+
+  h('5. SIGNATURE', 11);
+  gap(4);
+  t(`Fait à ${commune || '____________'}, le ${new Date().toLocaleDateString('fr-FR')}`);
+  gap(16);
+  t('Signature du déclarant :');
+  gap(20);
+  t('_________________________________');
+  gap(8);
+  t(`${prenom} ${nom}`, 9, 'normal');
+
+  // Footer
+  doc.setFontSize(8).setFont('helvetica', 'normal').setTextColor(150, 150, 150);
+  doc.text('Document généré par Bailo Airbnb — bailo-bnb.netlify.app', m, 285);
+  doc.text('Ce document est à déposer en mairie ou à envoyer par courrier recommandé avec AR.', m, 290);
+
+  doc.save(`cerfa-14004-${nom.toLowerCase().replace(/\s/g, '-') || 'declaration'}.pdf`);
+  document.getElementById('modal-cerfa-ok').classList.add('open');
 }
 
 // ANNONCE IA
