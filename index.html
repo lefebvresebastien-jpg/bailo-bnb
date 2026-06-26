@@ -702,6 +702,25 @@
         <div class="card">
           <div class="card-header"><span class="card-title">Simulateur fiscal 2026</span></div>
           <div class="card-body">
+
+            <div class="form-row" style="margin-bottom:4px">
+              <div class="form-group">
+                <label class="form-label">Année fiscale</label>
+                <select class="form-control" id="fisc-annee" onchange="prefillFiscalFromResas()">
+                  <option value="2026">2026</option>
+                  <option value="2025">2025</option>
+                  <option value="2024">2024</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Bien</label>
+                <select class="form-control" id="fisc-bien" onchange="prefillFiscalFromResas()">
+                  <option value="">Tous les biens</option>
+                </select>
+              </div>
+            </div>
+            <div id="fisc-resume" style="display:none;background:var(--primary-light);border:1px solid var(--primary);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--primary)"></div>
+
             <div class="form-group">
               <label class="form-label">Classement du bien</label>
               <select class="form-control" id="fisc-classement" onchange="calcFiscal()">
@@ -1511,7 +1530,7 @@ function showPage(name) {
   btn.onclick = fn ? new Function(fn) : null;
   btn.style.display = label ? '' : 'none';
   if (name === 'calendrier') renderCal();
-  if (name === 'fiscalite') calcFiscal();
+  if (name === 'fiscalite') { prefillFiscalFromResas(); }
 }
 
 function toggleSidebar() {
@@ -1880,11 +1899,62 @@ function updateSelects() {
   document.getElementById('filter-bien').innerHTML = opts;
   document.getElementById('resa-bien-id').innerHTML = '<option value="">Sélectionner un bien</option>' + biens.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
   document.getElementById('annonce-bien').innerHTML = '<option value="">Sélectionner un bien</option>' + biens.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
+  const fiscBien = document.getElementById('fisc-bien');
+  if (fiscBien) fiscBien.innerHTML = '<option value="">Tous les biens</option>' + biens.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
   const demSel = document.getElementById('dem-bien-select');
   if (demSel) demSel.innerHTML = '<option value="">-- Sélectionner un bien --</option>' + biens.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
 }
 
 // FISCALITE
+function prefillFiscalFromResas() {
+  const annee = parseInt(document.getElementById('fisc-annee')?.value) || new Date().getFullYear();
+  const bienId = document.getElementById('fisc-bien')?.value;
+
+  // Filtrer les réservations confirmées/terminées de l'année
+  const resasFiltrees = resas.filter(r => {
+    if (r.statut === 'annulee') return false;
+    if (!r.arrivee) return false;
+    const year = new Date(r.arrivee).getFullYear();
+    if (year !== annee) return false;
+    if (bienId && r.bien_id !== bienId) return false;
+    return true;
+  });
+
+  const ca = resasFiltrees.reduce((s, r) => s + (r.montant || 0), 0);
+  const nbResas = resasFiltrees.length;
+  const nbNuits = resasFiltrees.reduce((s, r) => {
+    if (!r.arrivee || !r.depart) return s;
+    return s + Math.round((new Date(r.depart) - new Date(r.arrivee)) / 86400000);
+  }, 0);
+
+  // Pré-remplir le CA
+  document.getElementById('fisc-ca').value = ca || '';
+
+  // Afficher le résumé
+  const resume = document.getElementById('fisc-resume');
+  if (ca > 0) {
+    const bienNom = bienId ? (biens.find(b => b.id === bienId)?.nom || '') : 'tous les biens';
+    resume.style.display = 'block';
+    resume.innerHTML = `📊 <strong>${annee}</strong> — ${bienNom} : <strong>${nbResas} réservation${nbResas > 1 ? 's' : ''}</strong> · <strong>${nbNuits} nuit${nbNuits > 1 ? 's' : ''}</strong> · CA calculé <strong>${ca.toLocaleString('fr-FR')} €</strong>`;
+
+    // Déterminer le classement depuis les biens
+    if (bienId) {
+      const bien = biens.find(b => b.id === bienId);
+      if (bien?.classement && bien.classement !== 'non_classe') {
+        document.getElementById('fisc-classement').value = 'classe';
+      }
+    }
+  } else {
+    resume.style.display = nbResas === 0 ? 'block' : 'none';
+    resume.innerHTML = nbResas === 0 ? `ℹ️ Aucune réservation trouvée pour ${annee}${bienId ? ' sur ce bien' : ''}. Saisissez le CA manuellement.` : '';
+    resume.style.color = 'var(--text-muted)';
+    resume.style.borderColor = 'var(--border)';
+    resume.style.background = 'var(--bg)';
+  }
+
+  calcFiscal();
+}
+
 function calcFiscal() {
   const ca = parseFloat(document.getElementById('fisc-ca')?.value) || 0;
   const charges = parseFloat(document.getElementById('fisc-charges')?.value) || 0;
