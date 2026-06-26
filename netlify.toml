@@ -6,3 +6,7 @@
   [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
+
+# Rappels automatiques chaque matin à 8h
+[functions."bnb-rappels"]
+  schedule = "0 8 * * *"
