@@ -1410,6 +1410,44 @@
         <label class="form-label">Description courte</label>
         <textarea class="form-control" id="bien-description" rows="2" placeholder="Beau studio calme avec parking..."></textarea>
       </div>
+
+      <div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:4px">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:12px">🗝️ Accès & Boîte à clés</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Code boîte à clés</label>
+            <input class="form-control" id="bien-code-cle" placeholder="Ex: 1234">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Localisation boîte</label>
+            <input class="form-control" id="bien-loc-cle" placeholder="Ex: portail gauche, entrée immeuble...">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Instructions d'accès</label>
+          <textarea class="form-control" id="bien-acces" rows="3" placeholder="Ex: Prendre la rue principale, portail vert sur la droite. Boîte à clés fixée au mur. Check-in à partir de 15h, check-out avant 11h."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lien Google Maps / plan d'accès</label>
+          <input class="form-control" id="bien-maps" placeholder="https://maps.google.com/...">
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);margin:4px 0 12px;padding-top:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:12px">🍽️ Bons plans (visibles par le voyageur)</div>
+        <div class="form-group">
+          <label class="form-label">Restaurants recommandés</label>
+          <textarea class="form-control" id="bien-resto" rows="2" placeholder="Ex: La Pizzeria Barlinoise (5 min à pied), Le Bistrot du Coin (meilleur steak frites)..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Activités & balades</label>
+          <textarea class="form-control" id="bien-activites" rows="2" placeholder="Ex: Louvre-Lens à 10 min, parc naturel régional, marché le samedi matin..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Infos pratiques</label>
+          <textarea class="form-control" id="bien-infos-pratiques" rows="2" placeholder="Ex: Supermarché Lidl à 200m, pharmacie rue de la République, wifi: NomReseau / MotDePasse..."></textarea>
+        </div>
+      </div>
       <div class="form-group">
         <label class="form-label">Photos</label>
         <div class="photo-drop" id="photo-drop" onclick="document.getElementById('photo-input').click()"
@@ -1544,6 +1582,13 @@ async function saveBien() {
     classement: document.getElementById('bien-classement').value,
     num_declaration: document.getElementById('bien-num-declaration').value,
     description: document.getElementById('bien-description').value,
+    code_cle: document.getElementById('bien-code-cle').value,
+    loc_cle: document.getElementById('bien-loc-cle').value,
+    acces: document.getElementById('bien-acces').value,
+    maps_url: document.getElementById('bien-maps').value,
+    bons_plans_resto: document.getElementById('bien-resto').value,
+    bons_plans_activites: document.getElementById('bien-activites').value,
+    infos_pratiques: document.getElementById('bien-infos-pratiques').value,
     photos
   };
   if (id) {
@@ -1577,6 +1622,13 @@ function openModalBien(id) {
       document.getElementById('bien-classement').value = b.classement || 'non_classe';
       document.getElementById('bien-num-declaration').value = b.num_declaration || '';
       document.getElementById('bien-description').value = b.description || '';
+      document.getElementById('bien-code-cle').value = b.code_cle || '';
+      document.getElementById('bien-loc-cle').value = b.loc_cle || '';
+      document.getElementById('bien-acces').value = b.acces || '';
+      document.getElementById('bien-maps').value = b.maps_url || '';
+      document.getElementById('bien-resto').value = b.bons_plans_resto || '';
+      document.getElementById('bien-activites').value = b.bons_plans_activites || '';
+      document.getElementById('bien-infos-pratiques').value = b.infos_pratiques || '';
       if (b.photos) {
         currentPhotos = [...b.photos];
         renderPhotoPreview();
@@ -1643,6 +1695,7 @@ function renderResas() {
         <div style="text-align:right;flex-shrink:0">
           <div class="resa-montant">${r.montant ? r.montant + ' €' : '—'}</div>
           <span class="badge ${badges[r.statut] || 'badge-info'}" style="margin-top:4px">${labels[r.statut] || r.statut}</span>
+          ${r.token_voyageur ? `<div style="margin-top:6px"><button onclick="event.stopPropagation();copyLienVoyageur('${r.token_voyageur}')" style="font-size:10px;padding:3px 7px;border-radius:6px;border:1px solid var(--border);background:white;cursor:pointer;color:var(--primary)">🔗 Lien séjour</button></div>` : ''}
         </div>
       </div>
     `;
@@ -1682,6 +1735,7 @@ function renderResas() {
 
 async function saveResa() {
   const id = document.getElementById('resa-id').value;
+  const token = id ? (resas.find(r => r.id === id)?.token_voyageur || crypto.randomUUID()) : crypto.randomUUID();
   const data = {
     user_id: USER_ID,
     bien_id: document.getElementById('resa-bien-id').value || null,
@@ -1694,7 +1748,8 @@ async function saveResa() {
     nb_voyageurs: parseInt(document.getElementById('resa-nb-voyageurs').value) || 1,
     plateforme: document.getElementById('resa-plateforme').value,
     statut: document.getElementById('resa-statut').value,
-    notes: document.getElementById('resa-notes').value
+    notes: document.getElementById('resa-notes').value,
+    token_voyageur: token
   };
   if (id) {
     await db.from('bnb_bookings').update(data).eq('id', id);
@@ -2440,6 +2495,13 @@ function loadParams() {
   if (data.adresse) { document.getElementById('param-adresse').value = data.adresse; document.getElementById('contrat-addr-bailleur').value = data.adresse; }
   if (data.tel) document.getElementById('param-tel').value = data.tel;
   if (data.regime) document.getElementById('param-regime').value = data.regime;
+}
+
+function copyLienVoyageur(token) {
+  const url = `https://bailo-bnb.netlify.app/sejour?token=${token}`;
+  navigator.clipboard.writeText(url).then(() => {
+    alert('Lien copié !\n\n' + url + '\n\nEnvoyez ce lien à votre voyageur par SMS ou email.');
+  });
 }
 
 // MODALS
