@@ -1293,37 +1293,64 @@
 
     <!-- PARAMETRES -->
     <div class="page" id="page-parametres">
-      <div class="card">
-        <div class="card-header"><span class="card-title">Informations bailleur</span></div>
-        <div class="card-body">
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Nom complet</label>
-              <input class="form-control" id="param-nom" placeholder="Sébastien Lefebvre">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Informations bailleur</span></div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Nom complet</label>
+                <input class="form-control" id="param-nom" placeholder="Sébastien Lefebvre">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-control" id="param-email" placeholder="contact@bailo.pro">
+              </div>
             </div>
             <div class="form-group">
-              <label class="form-label">Email</label>
-              <input class="form-control" id="param-email" placeholder="contact@bailo.pro">
+              <label class="form-label">Adresse</label>
+              <input class="form-control" id="param-adresse" placeholder="123 rue de la Paix, 62000 Arras">
             </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Téléphone</label>
+                <input class="form-control" id="param-tel" placeholder="06 12 34 56 78">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Régime fiscal</label>
+                <select class="form-control" id="param-regime">
+                  <option value="micro_bic">Micro-BIC</option>
+                  <option value="reel">Régime réel</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="saveParams()">Enregistrer</button>
           </div>
-          <div class="form-group">
-            <label class="form-label">Adresse</label>
-            <input class="form-control" id="param-adresse" placeholder="123 rue de la Paix, 62000 Arras">
+        </div>
+
+        <!-- SIGNATURE -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">✍️ Ma signature</span>
+            <button class="btn btn-outline" onclick="clearSignature()" style="font-size:12px">Effacer</button>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Téléphone</label>
-              <input class="form-control" id="param-tel" placeholder="06 12 34 56 78">
+          <div class="card-body">
+            <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px">
+              Signez dans le cadre ci-dessous. Cette signature sera automatiquement intégrée dans tous vos documents PDF (contrat, bon de réservation, factures).
             </div>
-            <div class="form-group">
-              <label class="form-label">Régime fiscal</label>
-              <select class="form-control" id="param-regime">
-                <option value="micro_bic">Micro-BIC</option>
-                <option value="reel">Régime réel</option>
-              </select>
+            <div style="border:2px solid var(--border);border-radius:10px;overflow:hidden;background:white;position:relative">
+              <canvas id="sig-canvas" width="380" height="160"
+                style="display:block;width:100%;touch-action:none;cursor:crosshair"></canvas>
+              <div id="sig-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--border);font-size:14px;pointer-events:none">
+                Signez ici...
+              </div>
             </div>
+            <div id="sig-preview-box" style="display:none;margin-top:12px;padding:10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">Aperçu dans les documents :</div>
+              <img id="sig-preview" style="max-height:60px;max-width:100%">
+            </div>
+            <button class="btn btn-primary" onclick="saveSignature()" style="width:100%;margin-top:12px">💾 Enregistrer la signature</button>
           </div>
-          <button class="btn btn-primary" onclick="saveParams()">Enregistrer</button>
         </div>
       </div>
     </div>
@@ -1574,6 +1601,7 @@ function showPage(name) {
   if (name === 'calendrier') renderCal();
   if (name === 'fiscalite') { prefillFiscalFromResas(); }
   if (name === 'messages-bailleur') { loadMessagesBailleur(); }
+  if (name === 'parametres') { setTimeout(initSignatureCanvas, 100); }
 }
 
 function toggleSidebar() {
@@ -2778,6 +2806,90 @@ async function cloturerIncident(id) {
   loadMessagesBailleur();
 }
 
+// SIGNATURE BAILLEUR
+let sigDrawing = false;
+let sigHasContent = false;
+
+function initSignatureCanvas() {
+  const canvas = document.getElementById('sig-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const getPos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const src = e.touches ? e.touches[0] : e;
+    return { x: (src.clientX - rect.left) * scaleX, y: (src.clientY - rect.top) * scaleY };
+  };
+
+  const start = (e) => {
+    e.preventDefault();
+    sigDrawing = true;
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+    document.getElementById('sig-placeholder').style.display = 'none';
+  };
+  const draw = (e) => {
+    if (!sigDrawing) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    sigHasContent = true;
+  };
+  const stop = () => { sigDrawing = false; };
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', draw);
+  canvas.addEventListener('mouseup', stop);
+  canvas.addEventListener('mouseleave', stop);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', draw, { passive: false });
+  canvas.addEventListener('touchend', stop);
+
+  // Charger signature existante
+  const saved = localStorage.getItem('bnb_signature');
+  if (saved) {
+    const img = new Image();
+    img.onload = () => { ctx.drawImage(img, 0, 0); sigHasContent = true; document.getElementById('sig-placeholder').style.display = 'none'; };
+    img.src = saved;
+    document.getElementById('sig-preview').src = saved;
+    document.getElementById('sig-preview-box').style.display = 'block';
+  }
+}
+
+function saveSignature() {
+  const canvas = document.getElementById('sig-canvas');
+  if (!sigHasContent) { alert('Veuillez signer dans le cadre avant d\'enregistrer.'); return; }
+  const dataUrl = canvas.toDataURL('image/png');
+  localStorage.setItem('bnb_signature', dataUrl);
+  document.getElementById('sig-preview').src = dataUrl;
+  document.getElementById('sig-preview-box').style.display = 'block';
+  alert('Signature enregistrée ! Elle sera intégrée dans vos documents PDF.');
+}
+
+function clearSignature() {
+  const canvas = document.getElementById('sig-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  sigHasContent = false;
+  document.getElementById('sig-placeholder').style.display = 'flex';
+  document.getElementById('sig-preview-box').style.display = 'none';
+  localStorage.removeItem('bnb_signature');
+}
+
+function addSignatureToPDF(doc, x, y, width, height) {
+  const sig = localStorage.getItem('bnb_signature');
+  if (!sig) return;
+  try { doc.addImage(sig, 'PNG', x, y, width, height); } catch(e) {}
+}
+
 // PARAMS
 function saveParams() {
   const data = {
@@ -2788,7 +2900,6 @@ function saveParams() {
     regime: document.getElementById('param-regime').value
   };
   localStorage.setItem('bnb_params', JSON.stringify(data));
-  // Pré-remplir contrat
   document.getElementById('contrat-bailleur').value = data.nom;
   document.getElementById('contrat-addr-bailleur').value = data.adresse;
   alert('Paramètres enregistrés');
@@ -2801,6 +2912,8 @@ function loadParams() {
   if (data.adresse) { document.getElementById('param-adresse').value = data.adresse; document.getElementById('contrat-addr-bailleur').value = data.adresse; }
   if (data.tel) document.getElementById('param-tel').value = data.tel;
   if (data.regime) document.getElementById('param-regime').value = data.regime;
+  // Init canvas signature si on est sur la page paramètres
+  setTimeout(initSignatureCanvas, 100);
 }
 
 function copyLienVoyageur(token) {
@@ -3038,6 +3151,8 @@ function genererBonResa() {
   doc.setFontSize(8).setTextColor(140,140,160);
   doc.text('Lu et approuve - Date : ___/___/______', m, y);
   doc.text('Lu et approuve - Date : ___/___/______', 120, y);
+  // Signature bailleur
+  addSignatureToPDF(doc, m, y - 28, 55, 22);
 
   doc.save('bon-reservation-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
 }
@@ -3076,6 +3191,7 @@ function genererFactureAcompte() {
   doc.text(p.nom || '', m, y); y += 4;
   doc.setFontSize(8).setTextColor(140,140,160);
   doc.text('Emis le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+  addSignatureToPDF(doc, m, y - 20, 55, 18);
 
   doc.save('facture-acompte-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
 }
@@ -3112,6 +3228,7 @@ function genererFactureSolde() {
   doc.text(p.nom || '', m, y); y += 4;
   doc.setFontSize(8).setTextColor(140,140,160);
   doc.text('Emis le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+  addSignatureToPDF(doc, m, y - 20, 55, 18);
 
   doc.save('facture-solde-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
 }
