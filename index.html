@@ -271,8 +271,10 @@
 
   /* RESPONSIVE */
   @media (max-width: 768px) {
-    #sidebar { transform: translateX(-100%); transition: transform .2s; }
+    #sidebar { transform: translateX(-100%); transition: transform .25s ease; position: fixed; z-index: 200; box-shadow: 4px 0 20px rgba(0,0,0,.15); }
     #sidebar.open { transform: translateX(0); }
+    #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 199; }
+    #sidebar-overlay.open { display: block; }
     #main { margin-left: 0; }
     .grid-2 { grid-template-columns: 1fr; }
     .form-row { grid-template-columns: 1fr; }
@@ -345,8 +347,7 @@
     <div class="version">Bailo Airbnb v1.0</div>
   </div>
 </nav>
-
-<!-- MAIN -->
+<div id="sidebar-overlay" onclick="closeSidebarMobile()"></div>
 <div id="main">
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:12px">
@@ -1694,6 +1695,7 @@ function showPage(name) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.querySelector(`[onclick="showPage('${name}')"]`).classList.add('active');
+  closeSidebarMobile();
   const titles = {
     dashboard: 'Tableau de bord', calendrier: 'Calendrier', reservations: 'Réservations',
     biens: 'Mes biens', voyageurs: 'Voyageurs', contrat: 'Contrat PDF',
@@ -1727,6 +1729,14 @@ function showPage(name) {
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+
+function closeSidebarMobile() {
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
 }
 
 function mainAction() {}
