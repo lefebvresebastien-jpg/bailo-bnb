@@ -607,7 +607,7 @@
           <div class="card-body">
             <div class="form-group">
               <label class="form-label">Bien concerné</label>
-              <select class="form-control" id="annonce-bien">
+              <select class="form-control" id="annonce-bien" onchange="prefillAnnonceFromBien()">
                 <option value="">Sélectionner un bien</option>
               </select>
             </div>
@@ -2202,6 +2202,23 @@ function genererCerfa() {
 }
 
 // ANNONCE IA
+function prefillAnnonceFromBien() {
+  const bienId = document.getElementById('annonce-bien').value;
+  const bien = biens.find(b => b.id === bienId);
+  if (!bien) return;
+  if (bien.type) document.getElementById('annonce-type').value = bien.type;
+  if (bien.capacite) document.getElementById('annonce-capa').value = bien.capacite;
+  if (bien.chambres) document.getElementById('annonce-chambres').value = bien.chambres;
+  if (bien.adresse) {
+    // Extraire la ville depuis l'adresse
+    const parts = bien.adresse.split(',');
+    const ville = parts.length > 1 ? parts[parts.length - 1].trim() : bien.adresse;
+    document.getElementById('annonce-ville').value = ville;
+  }
+  if (bien.description) document.getElementById('annonce-points').value = bien.description;
+  if (bien.bons_plans_activites) document.getElementById('annonce-proxim').value = bien.bons_plans_activites;
+}
+
 let lastAnnonceText = '';
 
 async function genererAnnonce() {
@@ -2279,17 +2296,13 @@ FORMAT DE RÉPONSE STRICT (respecte exactement ces balises) :
 ##FIN_REGLES##`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/.netlify/functions/bnb-annonce', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1200,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      body: JSON.stringify({ prompt })
     });
     const data = await response.json();
-    const text = data.content?.[0]?.text || 'Erreur lors de la génération.';
+    const text = data.text || data.content?.[0]?.text || 'Erreur lors de la génération.';
     lastAnnonceText = text;
 
     // Parser les sections
