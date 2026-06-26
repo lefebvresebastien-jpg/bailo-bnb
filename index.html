@@ -1830,6 +1830,17 @@ function renderResas() {
     resas.map(r => `<option value="${r.id}">${r.guest_nom || '—'} — ${formatDate(r.arrivee)}</option>`).join('');
 }
 
+// NOTIFICATIONS EMAIL
+async function notify(type, data) {
+  try {
+    await fetch('/.netlify/functions/bnb-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, data })
+    });
+  } catch(e) { console.warn('Notification email non envoyée:', e.message); }
+}
+
 async function saveResa() {
   const id = document.getElementById('resa-id').value;
   const token = id ? (resas.find(r => r.id === id)?.token_voyageur || crypto.randomUUID()) : crypto.randomUUID();
@@ -1852,6 +1863,19 @@ async function saveResa() {
     await db.from('bnb_bookings').update(data).eq('id', id);
   } else {
     await db.from('bnb_bookings').insert(data);
+    // Notification nouvelle réservation
+    const bien = biens.find(b => b.id === data.bien_id);
+    notify('nouvelle_reservation', {
+      guest_nom: data.guest_nom,
+      guest_email: data.guest_email,
+      guest_tel: data.guest_tel,
+      bien_nom: bien?.nom || '—',
+      arrivee: data.arrivee,
+      depart: data.depart,
+      nb_voyageurs: data.nb_voyageurs,
+      montant: data.montant,
+      plateforme: data.plateforme
+    });
   }
   closeModal('modal-resa');
   loadResas();
@@ -3079,6 +3103,15 @@ init();
             <button class="btn btn-primary" onclick="genererFactureSolde()" style="font-size:12px;padding:7px 14px">↓ PDF</button>
           </div>
         </div>
+        <div style="background:var(--bg);border-radius:10px;padding:14px;border:1px solid var(--border)">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:13.5px;font-weight:700">✅ Quittance de séjour</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:3px">Attestation de paiement complet — après le séjour</div>
+            </div>
+            <button class="btn btn-outline" onclick="genererQuittance()" style="font-size:12px;padding:7px 14px;color:var(--success);border-color:var(--success)">↓ PDF</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -3344,6 +3377,121 @@ function genererFactureSolde() {
   addSignatureToPDF(doc, m, y - 20, 55, 18);
 
   doc.save('facture-solde-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
+}
+
+function genererQuittance() {
+  const r = resas.find(x => x.id === docsResaId);
+  const b = r ? biens.find(x => x.id === r.bien_id) : null;
+  const p = getParams();
+  const tauxTaxe = parseFloat(document.getElementById('docs-taxe-taux').value) || 0;
+  const nuits = r?.arrivee && r?.depart ? Math.round((new Date(r.depart) - new Date(r.arrivee)) / 86400000) : 0;
+  const taxe = Math.round(tauxTaxe * nuits * (r?.nb_voyageurs||1) * 100) / 100;
+  const totalTTC = Math.round(((r?.montant||0) + taxe) * 100) / 100;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const m = 20;
+  let y = 38;
+
+  const t = (txt, s=10, style='normal', color=[30,30,46]) => {
+    doc.setFontSize(s).setFont('helvetica', style).setTextColor(...color);
+    const lines = doc.splitTextToSize(String(txt||''), 170);
+    doc.text(lines, m, y); y += lines.length * (s * 0.38 + 2);
+    return y;
+  };
+  const gap = (n=5) => { y += n; };
+  const hr = () => { doc.setDrawColor(220,220,220); doc.setLineWidth(0.3); doc.line(m,y,190,y); y+=5; };
+  const row = (label, val) => {
+    doc.setFontSize(10).setFont('helvetica','normal').setTextColor(100,100,120);
+    doc.text(String(label), m, y);
+    doc.setTextColor(30,30,46);
+    if(val) doc.text(String(val), 190, y, { align:'right' });
+    y += 7;
+  };
+
+  // Header vert
+  doc.setFillColor(16,185,129); doc.rect(0,0,210,32,'F');
+  doc.setFontSize(14).setFont('helvetica','bold').setTextColor(255,255,255);
+  doc.text('QUITTANCE DE SEJOUR', m, 13);
+  doc.setFontSize(9).setFont('helvetica','normal');
+  const numQ = 'QS-' + new Date().getFullYear() + '-' + String(resas.indexOf(r)+1).padStart(3,'0');
+  doc.text('No ' + numQ + '  -  Etablie le ' + new Date().toLocaleDateString('fr-FR'), m, 22);
+  if(p.nom) doc.text(p.nom, 190, 13, { align:'right' });
+  if(p.adresse) doc.text(p.adresse, 190, 22, { align:'right' });
+
+  // Attestation
+  gap(4);
+  doc.setFillColor(240,253,244); doc.rect(m, y-3, 170, 20, 'F');
+  doc.setFontSize(10).setFont('helvetica','bold').setTextColor(6,95,70);
+  doc.text('ATTESTATION DE PAIEMENT COMPLET', m+3, y+5);
+  doc.setFontSize(9).setFont('helvetica','normal');
+  doc.text('Je soussigne(e) certifie avoir recu le paiement integral du sejour ci-dessous.', m+3, y+13);
+  y += 24; hr();
+
+  // Parties
+  t('BAILLEUR', 8, 'bold', [100,100,120]); gap(1);
+  t(p.nom || '_______________');
+  if(p.adresse) t(p.adresse);
+  if(p.tel) t('Tel : ' + p.tel);
+  gap(6);
+  t('LOCATAIRE', 8, 'bold', [100,100,120]); gap(1);
+  t(r?.guest_nom || '_______________');
+  if(r?.guest_email) t(r.guest_email);
+  if(r?.guest_tel) t('Tel : ' + r.guest_tel);
+  gap(6); hr();
+
+  // Bien
+  t('LOGEMENT', 8, 'bold', [100,100,120]); gap(1);
+  t((b?.nom||'—') + '  -  ' + (b?.adresse||'—'));
+  if(b?.num_declaration) t('No declaration mairie : ' + b.num_declaration);
+  gap(6); hr();
+
+  // Séjour
+  t('SEJOUR', 8, 'bold', [100,100,120]); gap(2);
+  row('Dates du sejour', formatDate(r?.arrivee) + ' au ' + formatDate(r?.depart));
+  row('Duree', nuits + ' nuit(s)');
+  row('Nombre de voyageurs', String(r?.nb_voyageurs||1) + ' personne(s)');
+  row('Plateforme de reservation', r?.plateforme || 'Direct');
+  gap(4); hr();
+
+  // Détail paiement
+  t('DETAIL DU REGLEMENT', 8, 'bold', [100,100,120]); gap(2);
+  doc.setFillColor(245,246,250); doc.rect(m, y-4, 170, 8, 'F');
+  doc.setFontSize(9).setFont('helvetica','bold').setTextColor(100,100,120);
+  doc.text('Designation', m+2, y+1); doc.text('Montant', 190, y+1, { align:'right' });
+  y += 8;
+  row('Location ' + nuits + ' nuit(s) x ' + (b?.prix_nuit ? fmt(b.prix_nuit) + '/nuit' : '—'), fmt(r?.montant||0));
+  if(taxe > 0) {
+    doc.setFillColor(240,253,244); doc.rect(m, y-3, 170, 8, 'F');
+    row('Taxe de sejour (' + tauxTaxe + ' EUR x ' + nuits + ' nuits x ' + (r?.nb_voyageurs||1) + ' pers.)', fmt(taxe));
+  }
+  gap(3); hr();
+
+  // Total
+  doc.setFillColor(209,250,229); doc.rect(m, y-2, 170, 14, 'F');
+  doc.setFontSize(12).setFont('helvetica','bold').setTextColor(6,95,70);
+  doc.text('TOTAL REGLE TTC', m+3, y+8);
+  doc.text(fmt(totalTTC), 190, y+8, { align:'right' });
+  y += 20; gap(6); hr();
+
+  // Mention légale
+  doc.setFontSize(8).setFont('helvetica','normal').setTextColor(140,140,160);
+  const mention = 'Cette quittance atteste que le paiement integral du sejour a ete recu. Elle tient lieu de recu definitif. Etablie conformement aux dispositions du Code du tourisme (art. L324-1-1).';
+  const lines = doc.splitTextToSize(mention, 170);
+  doc.text(lines, m, y); y += lines.length * 4 + 16; hr();
+
+  // Signature
+  doc.setFontSize(9).setFont('helvetica','bold').setTextColor(60,60,80);
+  doc.text('Signature du bailleur', m, y); y += 5;
+  doc.setFont('helvetica','normal').setTextColor(80,80,100);
+  doc.text(p.nom || '', m, y); y += 4;
+  doc.setFontSize(8).setTextColor(140,140,160);
+  doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+  addSignatureToPDF(doc, m, y - 20, 60, 18);
+  y += 4;
+  doc.setDrawColor(180,180,180); doc.line(m, y, m+80, y);
+
+  doc.save('quittance-' + (r?.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r?.arrivee||'') + '.pdf');
 }
 </script>
 
