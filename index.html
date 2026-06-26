@@ -2976,7 +2976,46 @@ function clearSignature() {
 function addSignatureToPDF(doc, x, y, width, height) {
   const sig = localStorage.getItem('bnb_signature');
   if (!sig) return;
-  try { doc.addImage(sig, 'PNG', x, y, width, height); } catch(e) {}
+  try { doc.addImage(sig, 'PNG', x, y, width, height); } catch(e) { console.warn('Signature PDF error:', e); }
+}
+
+function sigBlock(doc, m, y, p, showLocataire = false) {
+  // Forcer saut de page si besoin (besoin de ~60px pour la signature)
+  if (y > 230) { doc.addPage(); y = 20; }
+
+  // Séparateur
+  doc.setDrawColor(200,200,200); doc.setLineWidth(0.3);
+  doc.line(m, y, 190, y); y += 10;
+
+  if (showLocataire) {
+    doc.setFontSize(9).setFont('helvetica','bold').setTextColor(60,60,80);
+    doc.text('Signature du bailleur', m, y);
+    doc.text('Signature du locataire', 120, y);
+    y += 6;
+    // Signature bailleur image
+    addSignatureToPDF(doc, m, y, 55, 22);
+    y += 24;
+    doc.setDrawColor(180,180,180);
+    doc.line(m, y, m+70, y);
+    doc.line(120, y, 190, y);
+    y += 5;
+    doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
+    doc.text(p.nom || '', m, y);
+    y += 5;
+    doc.setFontSize(8).setTextColor(140,140,160);
+    doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+    doc.text('Lu et approuve - Date : ___/___/______', 120, y);
+  } else {
+    doc.setFontSize(9).setFont('helvetica','bold').setTextColor(60,60,80);
+    doc.text('Signature du bailleur', m, y); y += 6;
+    addSignatureToPDF(doc, m, y, 55, 22); y += 24;
+    doc.setDrawColor(180,180,180); doc.line(m, y, m+80, y); y += 5;
+    doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
+    doc.text(p.nom || '', m, y); y += 5;
+    doc.setFontSize(8).setTextColor(140,140,160);
+    doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+  }
+  return y;
 }
 
 // PARAMS
@@ -3282,17 +3321,7 @@ function genererBonResa() {
   const cond = doc.splitTextToSize('Ce bon de reservation confirme votre sejour. Un acompte vous sera demande pour valider la reservation. Le solde sera a regler avant votre arrivee. Ce document ne constitue pas une facture.', 170);
   doc.text(cond, m, y); y += cond.length * 4 + 14;
 
-  doc.setDrawColor(200,200,200); doc.line(m, y, 190, y); y += 8;
-  doc.setFontSize(9).setFont('helvetica','bold').setTextColor(60,60,80);
-  doc.text('Signature du bailleur', m, y); doc.text('Signature du locataire', 120, y); y += 6;
-  addSignatureToPDF(doc, m, y, 55, 22);
-  y += 24;
-  doc.setDrawColor(180,180,180); doc.line(m, y, m+70, y); doc.line(120, y, 190, y); y += 5;
-  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
-  doc.text(p.nom || '', m, y); y += 5;
-  doc.setFontSize(8).setTextColor(140,140,160);
-  doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
-  doc.text('Lu et approuve - Date : ___/___/______', 120, y);
+  y = sigBlock(doc, m, y, p, true);
 
   doc.save('bon-reservation-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
 }
@@ -3330,12 +3359,7 @@ function genererFactureAcompte() {
   const note = doc.splitTextToSize('Modes de paiement acceptes : virement bancaire, cheque, especes. Le reglement de cet acompte valide definitivement votre reservation.', 170);
   doc.text(note, m, y); y += note.length * 4 + 14;
 
-  addSignatureToPDF(doc, m, y, 55, 18); y += 20;
-  doc.setDrawColor(200,200,200); doc.line(m, y, m+80, y); y += 5;
-  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
-  doc.text(p.nom || '', m, y); y += 5;
-  doc.setFontSize(8).setTextColor(140,140,160);
-  doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+  y = sigBlock(doc, m, y, p);
 
   doc.save('facture-acompte-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
 }
@@ -3371,12 +3395,7 @@ function genererFactureSolde() {
   const note = doc.splitTextToSize('Ce solde est a regler avant votre arrivee le ' + formatDate(r.arrivee) + '. Modes de paiement : virement bancaire, cheque, especes.', 170);
   doc.text(note, m, y); y += note.length * 4 + 14;
 
-  addSignatureToPDF(doc, m, y, 55, 18); y += 20;
-  doc.setDrawColor(200,200,200); doc.line(m, y, m+80, y); y += 5;
-  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
-  doc.text(p.nom || '', m, y); y += 5;
-  doc.setFontSize(8).setTextColor(140,140,160);
-  doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+  y = sigBlock(doc, m, y, p);
 
   doc.save('facture-solde-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
 }
@@ -3527,16 +3546,7 @@ function genererQuittance() {
   doc.text(lines, m, y); y += lines.length * 4 + 16; hr();
 
   // Signature
-  // Signature bailleur bien positionnée
-  doc.setFontSize(9).setFont('helvetica','bold').setTextColor(60,60,80);
-  doc.text('Signature du bailleur', m, y); y += 6;
-  addSignatureToPDF(doc, m, y, 60, 22); // Signature d'abord
-  y += 24;
-  doc.setDrawColor(180,180,180); doc.line(m, y, m+80, y); y += 5;
-  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
-  doc.text(p.nom || '', m, y); y += 5;
-  doc.setFontSize(8).setTextColor(140,140,160);
-  doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+  y = sigBlock(doc, m, y, p);
 
   doc.save('quittance-' + (r?.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r?.arrivee||'') + '.pdf');
 }
