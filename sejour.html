@@ -297,9 +297,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
           <div id="docs-a-fournir-list">
             <div class="doc-item" style="cursor:default">
               <div class="doc-icon">🪪</div>
-              <div>
+              <div style="flex:1">
                 <div class="doc-name">Pièce d'identité valide</div>
-                <div class="doc-desc">CNI, passeport ou titre de séjour — transmettez une photo à votre hôte via la messagerie</div>
+                <div class="doc-desc">CNI, passeport ou titre de séjour</div>
+                <div style="margin-top:8px">
+                  <label style="display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:white;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:600">
+                    📎 Envoyer une photo
+                    <input type="file" id="upload-piece-id" accept="image/*,application/pdf" style="display:none" onchange="envoyerPieceIdentite(this)">
+                  </label>
+                  <span id="upload-piece-status" style="font-size:11px;color:var(--text-muted);margin-left:8px"></span>
+                </div>
               </div>
               <div id="badge-piece" class="badge badge-warning">À fournir</div>
             </div>
@@ -832,6 +839,60 @@ function afficherDocRecu(msgId) {
   showTab('messages');
 }
 
+// UPLOAD PIECE D'IDENTITE
+async function envoyerPieceIdentite(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('upload-piece-status');
+  statusEl.textContent = 'Envoi en cours...';
+
+  try {
+    // Convertir en base64
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    // Upload dans Supabase Storage bucket bnb-docs
+    const filePath = `pieces-identite/${resa.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const arrayBuffer = await file.arrayBuffer();
+
+    const { data: uploadData, error } = await db.storage
+      .from('bnb-docs')
+      .upload(filePath, arrayBuffer, { contentType: file.type, upsert: true });
+
+    if (error) throw error;
+
+    const { data: urlData } = db.storage.from('bnb-docs').getPublicUrl(filePath);
+    const pieceUrl = urlData?.publicUrl;
+
+    // Envoyer en message avec le lien
+    await db.from('bnb_messages').insert({
+      resa_id: resa.id,
+      user_id: resa.user_id,
+      role: 'voyageur',
+      expediteur: resa.guest_nom || 'Voyageur',
+      contenu: `🪪 Pièce d'identité envoyée : ${file.name}`,
+      lu: false,
+      doc_url: pieceUrl,
+      doc_type: 'piece_identite',
+      doc_nom: file.name
+    });
+
+    statusEl.textContent = '✅ Envoyée !';
+    statusEl.style.color = '#10b981';
+    document.getElementById('badge-piece').className = 'badge badge-success';
+    document.getElementById('badge-piece').textContent = '✅ Envoyée';
+
+  } catch(e) {
+    console.error(e);
+    statusEl.textContent = '❌ Erreur - réessayez';
+    statusEl.style.color = '#ef4444';
+  }
+}
+
 // MESSAGERIE
 async function loadMessages() {
   const { data } = await db.from('bnb_messages')
@@ -849,7 +910,23 @@ function renderMessages() {
   list.innerHTML = messages.map(m => {
     // Détecter un document PDF — soit via doc_url, soit via lien Storage dans le contenu
     const storageUrl = m.doc_url || (m.contenu && m.contenu.match(/https:\/\/[^\s]+\.pdf/)?.[0]);
-    const isDoc = storageUrl && (m.doc_type || m.contenu?.includes('QUITTANCE') || m.contenu?.includes('BON DE') || m.contenu?.includes('FACTURE'));
+    const isPiece = m.doc_type === 'piece_identite';
+    const isDoc = !isPiece && storageUrl && (m.doc_type || m.contenu?.includes('QUITTANCE') || m.contenu?.includes('BON DE') || m.contenu?.includes('FACTURE'));
+
+    if (isPiece && m.doc_url) {
+      const isImage = m.doc_url.match(/\.(jpg|jpeg|png|gif|webp|heic)/i);
+      return `
+        <div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:4px">
+          <div style="max-width:85%;background:white;border:2px solid #3b5bdb;border-radius:12px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+            <div style="font-size:12px;font-weight:700;color:#3b5bdb;margin-bottom:8px">🪪 Pièce d'identité — ${m.doc_nom||''}</div>
+            ${isImage ? `<img src="${m.doc_url}" style="max-width:100%;border-radius:8px;max-height:200px;object-fit:cover">` : ''}
+            <a href="${m.doc_url}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#3b5bdb;color:white;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:12.5px;font-weight:600;margin-top:8px">
+              ↓ Télécharger
+            </a>
+            <div style="font-size:10px;color:#9ca3af;margin-top:6px;text-align:right">${formatDateTime(m.created_at)}</div>
+          </div>
+        </div>`;
+    }
 
     if (isDoc) {
       const icons = { quittance: '✅', contrat: '📋', facture: '💳', bon_resa: '📋' };
