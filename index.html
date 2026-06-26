@@ -3109,7 +3109,10 @@ init();
               <div style="font-size:13.5px;font-weight:700">✅ Quittance de séjour</div>
               <div style="font-size:12px;color:var(--text-muted);margin-top:3px">Attestation de paiement complet — après le séjour</div>
             </div>
-            <button class="btn btn-outline" onclick="genererQuittance()" style="font-size:12px;padding:7px 14px;color:var(--success);border-color:var(--success)">↓ PDF</button>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-outline" onclick="genererQuittance()" style="font-size:12px;padding:7px 14px;color:var(--success);border-color:var(--success)">↓ PDF</button>
+              <button class="btn btn-primary" onclick="envoyerQuittanceVoyageur()" style="font-size:12px;padding:7px 14px;background:var(--success)">📨 Envoyer</button>
+            </div>
           </div>
         </div>
       </div>
@@ -3279,18 +3282,17 @@ function genererBonResa() {
   const cond = doc.splitTextToSize('Ce bon de reservation confirme votre sejour. Un acompte vous sera demande pour valider la reservation. Le solde sera a regler avant votre arrivee. Ce document ne constitue pas une facture.', 170);
   doc.text(cond, m, y); y += cond.length * 4 + 14;
 
-  doc.setDrawColor(200,200,200); doc.line(m, y, 190, y); y += 10;
+  doc.setDrawColor(200,200,200); doc.line(m, y, 190, y); y += 8;
   doc.setFontSize(9).setFont('helvetica','bold').setTextColor(60,60,80);
-  doc.text('Signature du bailleur', m, y); doc.text('Signature du locataire', 120, y); y += 5;
-  doc.setFont('helvetica','normal').setTextColor(80,80,100);
-  doc.text(p.nom || '', m, y); y += 16;
+  doc.text('Signature du bailleur', m, y); doc.text('Signature du locataire', 120, y); y += 6;
+  addSignatureToPDF(doc, m, y, 55, 22);
+  y += 24;
   doc.setDrawColor(180,180,180); doc.line(m, y, m+70, y); doc.line(120, y, 190, y); y += 5;
+  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
+  doc.text(p.nom || '', m, y); y += 5;
   doc.setFontSize(8).setTextColor(140,140,160);
-  const dateAujourdhui = new Date().toLocaleDateString('fr-FR');
-  doc.text('Lu et approuve le ' + dateAujourdhui, m, y);
+  doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
   doc.text('Lu et approuve - Date : ___/___/______', 120, y);
-  // Signature bailleur
-  addSignatureToPDF(doc, m, y - 28, 55, 22);
 
   doc.save('bon-reservation-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
 }
@@ -3328,12 +3330,12 @@ function genererFactureAcompte() {
   const note = doc.splitTextToSize('Modes de paiement acceptes : virement bancaire, cheque, especes. Le reglement de cet acompte valide definitivement votre reservation.', 170);
   doc.text(note, m, y); y += note.length * 4 + 14;
 
+  addSignatureToPDF(doc, m, y, 55, 18); y += 20;
   doc.setDrawColor(200,200,200); doc.line(m, y, m+80, y); y += 5;
   doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
-  doc.text(p.nom || '', m, y); y += 4;
+  doc.text(p.nom || '', m, y); y += 5;
   doc.setFontSize(8).setTextColor(140,140,160);
   doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
-  addSignatureToPDF(doc, m, y - 20, 55, 18);
 
   doc.save('facture-acompte-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
 }
@@ -3369,14 +3371,58 @@ function genererFactureSolde() {
   const note = doc.splitTextToSize('Ce solde est a regler avant votre arrivee le ' + formatDate(r.arrivee) + '. Modes de paiement : virement bancaire, cheque, especes.', 170);
   doc.text(note, m, y); y += note.length * 4 + 14;
 
+  addSignatureToPDF(doc, m, y, 55, 18); y += 20;
   doc.setDrawColor(200,200,200); doc.line(m, y, m+80, y); y += 5;
   doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
-  doc.text(p.nom || '', m, y); y += 4;
+  doc.text(p.nom || '', m, y); y += 5;
   doc.setFontSize(8).setTextColor(140,140,160);
   doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
-  addSignatureToPDF(doc, m, y - 20, 55, 18);
 
   doc.save('facture-solde-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
+}
+
+async function envoyerQuittanceVoyageur() {
+  const r = resas.find(x => x.id === docsResaId);
+  const b = r ? biens.find(x => x.id === r.bien_id) : null;
+  const tauxTaxe = parseFloat(document.getElementById('docs-taxe-taux').value) || 0;
+  const nuits = r?.arrivee && r?.depart ? Math.round((new Date(r.depart) - new Date(r.arrivee)) / 86400000) : 0;
+  const taxe = Math.round(tauxTaxe * nuits * (r?.nb_voyageurs||1) * 100) / 100;
+  const totalTTC = Math.round(((r?.montant||0) + taxe) * 100) / 100;
+  const p = getParams();
+
+  const contenu = `✅ QUITTANCE DE SEJOUR\n\nBonjour ${r?.guest_nom || ''},\n\nVeuillez trouver ci-dessous votre quittance de séjour.\n\n📍 Bien : ${b?.nom || '—'}\n📅 Séjour : ${formatDate(r?.arrivee)} → ${formatDate(r?.depart)} (${nuits} nuit(s))\n👥 Voyageurs : ${r?.nb_voyageurs || 1} personne(s)\n\n💶 Détail du règlement :\n• Location : ${fmt(r?.montant||0)}${taxe > 0 ? '\n• Taxe de séjour : ' + fmt(taxe) : ''}\n• TOTAL RÉGLÉ TTC : ${fmt(totalTTC)}\n\nNous confirmons avoir bien reçu le paiement intégral de votre séjour.\n\nMerci pour votre confiance et à bientôt !\n\n${p.nom || 'Votre hôte'}`;
+
+  await db.from('bnb_messages').insert({
+    resa_id: r.id,
+    user_id: USER_ID,
+    role: 'bailleur',
+    expediteur: p.nom || 'Votre hôte',
+    contenu,
+    lu: false
+  });
+
+  // Aussi stocker en table documents pour l'espace voyageur
+  await db.from('bnb_documents').insert({
+    resa_id: r.id,
+    user_id: USER_ID,
+    type: 'quittance',
+    titre: 'Quittance de séjour — ' + formatDate(r?.arrivee) + ' au ' + formatDate(r?.depart),
+    contenu: JSON.stringify({
+      montant_location: r?.montant,
+      taxe_sejour: taxe,
+      total_ttc: totalTTC,
+      nuits,
+      nb_voyageurs: r?.nb_voyageurs,
+      bien_nom: b?.nom,
+      bien_adresse: b?.adresse,
+      bailleur_nom: p.nom,
+      date_emission: new Date().toISOString()
+    }),
+    created_at: new Date().toISOString()
+  }).then(() => {}).catch(() => {}); // Optionnel si table pas encore créée
+
+  alert(`Quittance envoyée à ${r?.guest_nom} dans l'espace voyageur !`);
+  closeModal('modal-docs-financiers');
 }
 
 function genererQuittance() {
@@ -3481,15 +3527,16 @@ function genererQuittance() {
   doc.text(lines, m, y); y += lines.length * 4 + 16; hr();
 
   // Signature
+  // Signature bailleur bien positionnée
   doc.setFontSize(9).setFont('helvetica','bold').setTextColor(60,60,80);
-  doc.text('Signature du bailleur', m, y); y += 5;
-  doc.setFont('helvetica','normal').setTextColor(80,80,100);
-  doc.text(p.nom || '', m, y); y += 4;
+  doc.text('Signature du bailleur', m, y); y += 6;
+  addSignatureToPDF(doc, m, y, 60, 22); // Signature d'abord
+  y += 24;
+  doc.setDrawColor(180,180,180); doc.line(m, y, m+80, y); y += 5;
+  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
+  doc.text(p.nom || '', m, y); y += 5;
   doc.setFontSize(8).setTextColor(140,140,160);
   doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
-  addSignatureToPDF(doc, m, y - 20, 60, 18);
-  y += 4;
-  doc.setDrawColor(180,180,180); doc.line(m, y, m+80, y);
 
   doc.save('quittance-' + (r?.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r?.arrivee||'') + '.pdf');
 }
