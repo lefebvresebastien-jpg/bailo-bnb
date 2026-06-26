@@ -1605,8 +1605,8 @@ function openModalBien(id) {
   document.getElementById('photo-preview').innerHTML = '';
   document.getElementById('bien-id').value = '';
   document.getElementById('modal-bien-title').textContent = 'Nouveau bien';
-  ['nom','adresse','num_declaration','description','code_cle','loc_cle','acces','maps','resto','activites','infos_pratiques'].forEach(f => {
-    const el = document.getElementById('bien-' + f.replace(/_/g, '-'));
+  ['bien-nom','bien-adresse','bien-num-declaration','bien-description','bien-code-cle','bien-loc-cle','bien-acces','bien-maps','bien-resto','bien-activites','bien-infos-pratiques'].forEach(id => {
+    const el = document.getElementById(id);
     if (el) el.value = '';
   });
   ['type','classement'].forEach(f => document.getElementById('bien-' + f).value = f === 'type' ? 'appartement' : 'non_classe');
