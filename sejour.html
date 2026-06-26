@@ -167,6 +167,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div class="tab" onclick="showTab('bons-plans')">🍽️ Bons plans</div>
     <div class="tab" onclick="showTab('messages')">💬 Messages <span id="msg-badge" style="display:none;background:var(--danger);color:white;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:4px">!</span></div>
     <div class="tab" onclick="showTab('incident')">🚨 Incident</div>
+    <div class="tab" onclick="showTab('edl-sortie')">🔑 Départ</div>
   </div>
 
   <!-- SECTIONS -->
@@ -455,6 +456,75 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
           <!-- Incidents existants -->
           <div id="incidents-list" style="margin-top:24px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EDL SORTIE -->
+    <div class="section" id="section-edl-sortie">
+      <div class="card">
+        <div class="card-header"><div class="card-title">🔑 État des lieux de sortie</div></div>
+        <div class="card-body">
+          <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:16px;background:#fef3c7;border-radius:8px;padding:10px 12px;border:1px solid #fde047">
+            ⚠️ Merci de compléter cet état des lieux <strong>avant de quitter le logement</strong>. Il sera comparé avec l'état d'entrée pour la restitution du dépôt de garantie.
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+            <div class="form-group">
+              <label class="form-label">Date de départ</label>
+              <input class="form-control" id="edls-date" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Heure de départ</label>
+              <input class="form-control" id="edls-heure" type="time" value="11:00">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Relevé compteur eau (m³)</label>
+              <input class="form-control" id="edls-eau" placeholder="Ex: 1238">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Relevé compteur électricité (kWh)</label>
+              <input class="form-control" id="edls-elec" placeholder="Ex: 5695">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:16px">
+            <label class="form-label">Nombre de clés restituées</label>
+            <select class="form-control" id="edls-cles">
+              <option value="1">1 clé</option>
+              <option value="2" selected>2 clés</option>
+              <option value="3">3 clés</option>
+            </select>
+          </div>
+
+          <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--primary)">État général à la sortie</div>
+
+          <div id="edls-pieces"></div>
+
+          <div class="form-group" style="margin-top:16px">
+            <label class="form-label">État de propreté général</label>
+            <select class="form-control" id="edls-proprete">
+              <option value="tres_propre">Très propre — aucun nettoyage nécessaire</option>
+              <option value="propre" selected>Propre — nettoyage standard</option>
+              <option value="moyen">Moyen — nettoyage approfondi nécessaire</option>
+              <option value="sale">Sale — nettoyage important nécessaire</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Dommages / dégradations constatés</label>
+            <textarea class="form-control" id="edls-degats" rows="3" placeholder="Aucun dommage constaté / ou décrire les dégâts..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Observations générales</label>
+            <textarea class="form-control" id="edls-obs" rows="2" placeholder="Remarques complémentaires..."></textarea>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <button class="btn btn-primary" onclick="soumettreEDLSortie()" style="flex:1">✅ Soumettre l'état des lieux de sortie</button>
+            <button class="btn btn-outline" onclick="genererEDLSortiePDF()" style="flex:1">📄 PDF</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1079,6 +1149,143 @@ function showTab(name) {
     if (t.getAttribute('onclick').includes("'" + name + "'")) t.classList.add('active');
   });
   if (name === 'messages') loadMessages();
+  if (name === 'edl-sortie') initEDLSortie();
+}
+
+// EDL SORTIE
+function initEDLSortie() {
+  const today = new Date().toISOString().slice(0, 10);
+  const dateEl = document.getElementById('edls-date');
+  if (dateEl && !dateEl.value) dateEl.value = resa?.depart || today;
+
+  const container = document.getElementById('edls-pieces');
+  if (!container || container.innerHTML) return;
+
+  const EDL_PIECES_SORTIE = [
+    { id: 'salon', nom: 'Salon / Séjour', elements: ['Sol', 'Murs', 'Mobilier', 'TV / Électronique'] },
+    { id: 'cuisine', nom: 'Cuisine', elements: ['Plan de travail', 'Évier', 'Plaques / Four', 'Réfrigérateur', 'Vaisselle / Ustensiles'] },
+    { id: 'chambre1', nom: 'Chambre(s)', elements: ['Sol', 'Murs', 'Literie', 'Armoire / Rangements'] },
+    { id: 'sdb', nom: 'Salle de bain / WC', elements: ['Sol', 'Murs', 'Douche / Baignoire', 'Sanitaires', 'Serviettes'] },
+    { id: 'exterieur', nom: 'Extérieur (si applicable)', elements: ['Terrasse / Jardin', 'Mobilier extérieur', 'Barbecue'] },
+  ];
+  const ETAT_OPTIONS = ['Bon état', 'État correct', 'Usure normale', 'À signaler', 'Dégradé'];
+
+  container.innerHTML = EDL_PIECES_SORTIE.map(piece => `
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:8px;padding:8px 12px;background:var(--primary-light);border-radius:8px">
+        ${piece.nom}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${piece.elements.map(el => `
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
+            <div style="font-size:12.5px;flex:1">${el}</div>
+            <select class="form-control" style="width:130px;font-size:12px;padding:4px 8px">
+              ${ETAT_OPTIONS.map(o => `<option value="${o}">${o}</option>`).join('')}
+            </select>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+async function soumettreEDLSortie() {
+  const date = document.getElementById('edls-date')?.value || '';
+  const heure = document.getElementById('edls-heure')?.value || '11:00';
+  const eau = document.getElementById('edls-eau')?.value || '';
+  const elec = document.getElementById('edls-elec')?.value || '';
+  const cles = document.getElementById('edls-cles')?.value || '2';
+  const proprete = document.getElementById('edls-proprete')?.value || '';
+  const degats = document.getElementById('edls-degats')?.value || '';
+  const obs = document.getElementById('edls-obs')?.value || '';
+  const p = params;
+
+  let contenu = `🔑 ÉTAT DES LIEUX DE SORTIE\n`;
+  contenu += `Date départ : ${formatDate(date)} à ${heure}\n`;
+  contenu += `Clés restituées : ${cles}\n`;
+  if (eau) contenu += `Compteur eau : ${eau} m³\n`;
+  if (elec) contenu += `Compteur électricité : ${elec} kWh\n`;
+  contenu += `Propreté : ${proprete}\n`;
+  if (degats) contenu += `Dommages : ${degats}\n`;
+  if (obs) contenu += `Observations : ${obs}\n`;
+
+  await db.from('bnb_messages').insert({
+    resa_id: resa.id, user_id: resa.user_id,
+    role: 'voyageur', expediteur: resa.guest_nom || 'Voyageur',
+    contenu, lu: false
+  });
+
+  alert('État des lieux de sortie envoyé à votre hôte. Merci pour votre séjour !');
+  showTab('messages');
+}
+
+function genererEDLSortiePDF() {
+  const date = document.getElementById('edls-date')?.value || '';
+  const heure = document.getElementById('edls-heure')?.value || '11:00';
+  const eau = document.getElementById('edls-eau')?.value || '';
+  const elec = document.getElementById('edls-elec')?.value || '';
+  const cles = document.getElementById('edls-cles')?.value || '2';
+  const proprete = document.getElementById('edls-proprete')?.value || 'Propre';
+  const degats = document.getElementById('edls-degats')?.value || 'Aucun dommage constaté';
+  const obs = document.getElementById('edls-obs')?.value || '';
+  const p = params;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const m = 20; let y = 36;
+
+  const t = (txt, s=10, style='normal', color=[30,30,46]) => {
+    doc.setFontSize(s).setFont('helvetica',style).setTextColor(...color);
+    const lines = doc.splitTextToSize(String(txt||''),170);
+    doc.text(lines,m,y); y += lines.length*(s*0.38+2);
+  };
+  const gap = (n=5) => { y+=n; };
+  const hr = () => { doc.setDrawColor(220,220,220);doc.setLineWidth(0.3);doc.line(m,y,190,y);y+=5; };
+  const field = (label, val) => {
+    doc.setFontSize(8).setFont('helvetica','bold').setTextColor(100,100,120);
+    doc.text(label.toUpperCase(),m,y); y+=4;
+    doc.setFontSize(10).setFont('helvetica','normal').setTextColor(30,30,46);
+    const lines = doc.splitTextToSize(String(val||'—'),170);
+    doc.text(lines,m,y); y+=lines.length*5+2;
+    doc.setDrawColor(220,220,220);doc.line(m,y,190,y);y+=5;
+  };
+
+  doc.setFillColor(245,158,11);doc.rect(0,0,210,30,'F');
+  doc.setFontSize(13).setFont('helvetica','bold').setTextColor(255,255,255);
+  doc.text("ÉTAT DES LIEUX DE SORTIE", m, 12);
+  doc.setFontSize(8).setFont('helvetica','normal');
+  doc.text('Meublé de tourisme  -  Art. 1731 Code civil', m, 20);
+  if(p?.nom) doc.text(p.nom, 190, 12, {align:'right'});
+
+  t('1. PARTIES', 11, 'bold', [59,91,219]); gap(2);
+  field('Bailleur', (p?.nom||'—') + '  |  ' + (p?.adresse||''));
+  field('Locataire', (resa?.guest_nom||'—') + '  |  ' + (resa?.guest_email||'') + '  |  ' + (resa?.guest_tel||''));
+  field('Logement', (bien?.nom||'—') + '  |  ' + (bien?.adresse||''));
+  hr();
+
+  t('2. INFORMATIONS DE DÉPART', 11, 'bold', [59,91,219]); gap(2);
+  field('Date et heure de départ', formatDate(date) + ' à ' + heure);
+  field('Nombre de clés restituées', cles);
+  if(eau) field('Relevé compteur eau', eau + ' m³');
+  if(elec) field('Relevé compteur électricité', elec + ' kWh');
+  hr();
+
+  t('3. ÉTAT DES LIEUX', 11, 'bold', [59,91,219]); gap(2);
+  field('État de propreté général', proprete);
+  field('Dommages / dégradations', degats);
+  if(obs) field('Observations', obs);
+  hr();
+
+  t('4. SIGNATURES', 11, 'bold', [59,91,219]); gap(6);
+  doc.setFontSize(9).setFont('helvetica','bold').setTextColor(60,60,80);
+  doc.text('Signature du bailleur', m, y); doc.text('Signature du locataire', 120, y); y+=6;
+  addSignatureToPDF(doc, m, y, 50, 18); y+=22;
+  doc.setDrawColor(180,180,180);doc.line(m,y,m+70,y);doc.line(120,y,190,y);y+=5;
+  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
+  doc.text(p?.nom||'', m, y); y+=5;
+  doc.setFontSize(8).setTextColor(140,140,160);
+  doc.text('Date : ' + new Date().toLocaleDateString('fr-FR'), m, y);
+  doc.text('Date : ___/___/______', 120, y);
+
+  doc.save('edl-sortie-' + (resa?.guest_nom||'').replace(/\s/g,'-') + '-' + (resa?.depart||'') + '.pdf');
 }
 
 // PHOTO VIEWER
