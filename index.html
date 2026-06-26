@@ -1610,7 +1610,7 @@ function openModalBien(id) {
     if (el) el.value = '';
   });
   ['type','classement'].forEach(f => document.getElementById('bien-' + f).value = f === 'type' ? 'appartement' : 'non_classe');
-  ['capacite','chambres','prix_nuit'].forEach(f => document.getElementById('bien-' + f).value = '');
+  ['bien-capacite','bien-chambres','bien-prix-nuit'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
   if (id) {
     const b = biens.find(x => x.id === id);
     if (b) {
