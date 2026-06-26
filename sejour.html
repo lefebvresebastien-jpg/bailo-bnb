@@ -286,6 +286,46 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
     <!-- DOCUMENTS -->
     <div class="section" id="section-documents">
+
+      <!-- DOCUMENTS À FOURNIR -->
+      <div class="card" id="card-docs-a-fournir">
+        <div class="card-header"><div class="card-title">🪪 Documents à fournir</div></div>
+        <div class="card-body">
+          <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;background:#fef3c7;border-radius:8px;padding:10px 12px;border:1px solid #fde047">
+            ⚠️ Ces documents sont requis par votre hôte avant votre arrivée.
+          </div>
+          <div id="docs-a-fournir-list">
+            <div class="doc-item" style="cursor:default">
+              <div class="doc-icon">🪪</div>
+              <div>
+                <div class="doc-name">Pièce d'identité valide</div>
+                <div class="doc-desc">CNI, passeport ou titre de séjour — transmettez une photo à votre hôte via la messagerie</div>
+              </div>
+              <div id="badge-piece" class="badge badge-warning">À fournir</div>
+            </div>
+            <div class="doc-item" style="cursor:default">
+              <div class="doc-icon">📋</div>
+              <div>
+                <div class="doc-name">Contrat signé</div>
+                <div class="doc-desc">Téléchargez, signez et renvoyez le contrat via la messagerie</div>
+              </div>
+              <div id="badge-contrat" class="badge badge-warning">À signer</div>
+            </div>
+            <div class="doc-item" style="cursor:default">
+              <div class="doc-icon">💳</div>
+              <div>
+                <div class="doc-name">Acompte</div>
+                <div class="doc-desc">Règlement de l'acompte pour valider la réservation</div>
+              </div>
+              <div id="badge-acompte" class="badge badge-warning">En attente</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="showTab('messages')" style="width:100%;margin-top:14px">
+            📎 Envoyer mes documents via la messagerie
+          </button>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header"><div class="card-title">📄 Vos documents</div></div>
         <div class="card-body">
@@ -653,6 +693,30 @@ function renderAccueil() {
     const telEl = document.getElementById('bailleur-tel-display');
     telEl.textContent = params.tel;
     telEl.href = `tel:${params.tel}`;
+  }
+
+  // Mettre à jour badges documents selon statut réel
+  const docs = resa?.docs_recus ? JSON.parse(resa.docs_recus) : {};
+  const setbadge = (id, done) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'badge ' + (done ? 'badge-success' : 'badge-warning');
+    el.textContent = done ? '✅ Reçu' : '⚠️ À fournir';
+  };
+  setbadge('badge-piece', docs.piece);
+  setbadge('badge-contrat', docs.contrat);
+  const badgeAcompte = document.getElementById('badge-acompte');
+  if (badgeAcompte) {
+    badgeAcompte.className = 'badge ' + (docs.acompte ? 'badge-success' : 'badge-warning');
+    badgeAcompte.textContent = docs.acompte ? '✅ Reçu' : '⚠️ En attente';
+  }
+  // Masquer la section si tout est OK
+  if (docs.piece && docs.contrat && docs.acompte) {
+    const card = document.getElementById('card-docs-a-fournir');
+    if (card) {
+      card.style.borderColor = '#10b981';
+      card.querySelector('.card-title').textContent = '✅ Dossier complet';
+    }
   }
 }
 
