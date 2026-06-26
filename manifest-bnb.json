@@ -1,0 +1,41 @@
+{
+  "name": "Bailo Airbnb",
+  "short_name": "Bailo BnB",
+  "description": "Gestion de location courte durée",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b5bdb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-bnb-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-bnb-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nouvelle réservation",
+      "short_name": "+ Réservation",
+      "url": "/?action=new-resa"
+    },
+    {
+      "name": "Calendrier",
+      "short_name": "Calendrier",
+      "url": "/?page=calendrier"
+    },
+    {
+      "name": "Messages",
+      "short_name": "Messages",
+      "url": "/?page=messages-bailleur"
+    }
+  ]
+}
