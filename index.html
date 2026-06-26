@@ -2929,63 +2929,80 @@ function updateDocsPreview() {
   document.getElementById('docs-label-solde').textContent = solde.toLocaleString('fr-FR') + ' €';
 }
 
+// Formater montant sans caractere special (evite bug 1/750)
+function fmt(n) {
+  if (!n && n !== 0) return '---';
+  const parts = Number(n).toFixed(2).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return parts.join(',') + ' EUR';
+}
+
+function getParams() {
+  return JSON.parse(localStorage.getItem('bnb_params') || '{}');
+}
+
 function buildDocHeader(doc, titre, numero, couleur) {
-  const params = JSON.parse(localStorage.getItem('bnb_params') || '{}');
-  doc.setFillColor(...couleur); doc.rect(0, 0, 210, 32, 'F');
+  const p = getParams();
+  doc.setFillColor(...couleur); doc.rect(0, 0, 210, 36, 'F');
   doc.setFontSize(14).setFont('helvetica', 'bold').setTextColor(255, 255, 255);
   doc.text(titre, 20, 13);
   doc.setFontSize(9).setFont('helvetica', 'normal');
-  doc.text(`N° ${numero} — ${new Date().toLocaleDateString('fr-FR')}`, 20, 22);
-  if (params.nom) doc.text(params.nom, 190, 13, { align: 'right' });
-  if (params.adresse) doc.text(params.adresse, 190, 22, { align: 'right' });
+  doc.text('No ' + numero + '  -  ' + new Date().toLocaleDateString('fr-FR'), 20, 22);
+  if (p.nom) doc.text(p.nom, 190, 13, { align: 'right' });
+  if (p.adresse) doc.text(p.adresse, 190, 22, { align: 'right' });
+  const contact = [p.tel, p.email].filter(Boolean).join('  |  ');
+  if (contact) doc.text(contact, 190, 30, { align: 'right' });
 }
 
 function buildDocBody(doc, r, b, y) {
   const m = 20;
-  const params = JSON.parse(localStorage.getItem('bnb_params') || '{}');
+  const p = getParams();
   const nuits = r?.arrivee && r?.depart ? Math.round((new Date(r.depart) - new Date(r.arrivee)) / 86400000) : 0;
 
   const t = (txt, s=10, style='normal', color=[30,30,46]) => {
     doc.setFontSize(s).setFont('helvetica', style).setTextColor(...color);
-    const lines = doc.splitTextToSize(String(txt), 170);
+    const lines = doc.splitTextToSize(String(txt || ''), 170);
     doc.text(lines, m, y); y += lines.length * (s * 0.38 + 2);
     return y;
   };
   const gap = (n=5) => { y += n; return y; };
-  const hr = (color=[200,200,200]) => { doc.setDrawColor(...color); doc.setLineWidth(0.3); doc.line(m, y, 190, y); y += 5; return y; };
-  const row = (label, val, bold=false) => {
-    doc.setFontSize(10).setFont('helvetica', 'normal').setTextColor(100,100,120);
-    doc.text(label, m, y);
-    doc.setFont('helvetica', bold ? 'bold' : 'normal').setTextColor(30,30,46);
-    doc.text(String(val), 190, y, { align: 'right' });
+  const hr = () => { doc.setDrawColor(220,220,220); doc.setLineWidth(0.3); doc.line(m, y, 190, y); y += 5; return y; };
+  const row = (label, val) => {
+    doc.setFontSize(10).setFont('helvetica','normal').setTextColor(100,100,120);
+    doc.text(String(label || ''), m, y);
+    if (val) { doc.setTextColor(30,30,46); doc.text(String(val), 190, y, { align:'right' }); }
     y += 7; return y;
   };
 
-  // Parties
   y = t('BAILLEUR', 8, 'bold', [100,100,120]); gap(1);
-  y = t(`${params.nom || '—'} — ${params.adresse || '—'}`); y = t(`Tél : ${params.tel || '—'} — Email : ${params.email || '—'}`);
+  y = t(p.nom || '_______________');
+  if (p.adresse) y = t(p.adresse);
+  const cb = [p.tel ? 'Tel : ' + p.tel : '', p.email ? 'Email : ' + p.email : ''].filter(Boolean).join('   ');
+  if (cb) y = t(cb);
   gap(8);
+
   y = t('LOCATAIRE', 8, 'bold', [100,100,120]); gap(1);
-  y = t(`${r.guest_nom || '—'}`); y = t(`${r.guest_email || '—'} — Tél : ${r.guest_tel || '—'}`);
+  y = t(r.guest_nom || '_______________');
+  const cl = [r.guest_email, r.guest_tel ? 'Tel : ' + r.guest_tel : ''].filter(Boolean).join('   ');
+  if (cl) y = t(cl);
   gap(8); y = hr();
 
-  // Bien
   y = t('LOGEMENT', 8, 'bold', [100,100,120]); gap(1);
-  y = t(`${b?.nom || '—'} — ${b?.adresse || '—'}`);
-  if (b?.num_declaration) y = t(`N° déclaration mairie : ${b.num_declaration}`);
+  y = t((b?.nom || '---') + '  -  ' + (b?.adresse || '---'));
+  if (b?.num_declaration) y = t('No declaration mairie : ' + b.num_declaration);
   gap(8); y = hr();
 
-  // Tableau séjour
-  y = t('DÉTAIL DU SÉJOUR', 8, 'bold', [100,100,120]); gap(2);
+  y = t('DETAIL DU SEJOUR', 8, 'bold', [100,100,120]); gap(2);
   doc.setFillColor(245,246,250); doc.rect(m, y-4, 170, 8, 'F');
   doc.setFontSize(9).setFont('helvetica','bold').setTextColor(100,100,120);
-  doc.text('Désignation', m+2, y+1); doc.text('Montant', 190, y+1, { align:'right' });
+  doc.text('Designation', m+2, y+1); doc.text('Montant', 190, y+1, { align:'right' });
   y += 8;
 
-  y = row(`Séjour du ${formatDate(r.arrivee)} au ${formatDate(r.depart)}`, '');
-  y = row(`  ${nuits} nuit(s) × ${b?.prix_nuit || '—'} €/nuit`, `${r.montant ? r.montant.toLocaleString('fr-FR') + ' €' : '—'}`);
-  y = row(`  ${r.nb_voyageurs || 1} voyageur(s)`, '');
-  if (r.plateforme) y = row(`  Réservé via ${r.plateforme}`, '');
+  row('Sejour du ' + formatDate(r.arrivee) + ' au ' + formatDate(r.depart), '');
+  const pn = b?.prix_nuit ? String(b.prix_nuit).replace('.', ',') + ' EUR/nuit' : '---';
+  y = row('  ' + nuits + ' nuit(s) x ' + pn, r.montant ? fmt(r.montant) : '---');
+  y = row('  ' + (r.nb_voyageurs || 1) + ' voyageur(s)', '');
+  if (r.plateforme) y = row('  Reserve via ' + r.plateforme, '');
   gap(4); y = hr();
 
   return { y, gap, hr, row, t, m };
@@ -2994,95 +3011,109 @@ function buildDocBody(doc, r, b, y) {
 function genererBonResa() {
   const r = resas.find(x => x.id === docsResaId);
   const b = r ? biens.find(x => x.id === r.bien_id) : null;
+  const p = getParams();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  const num = `BR-${new Date().getFullYear()}-${String(resas.indexOf(r)+1).padStart(3,'0')}`;
+  const num = 'BR-' + new Date().getFullYear() + '-' + String(resas.indexOf(r)+1).padStart(3,'0');
 
-  buildDocHeader(doc, 'BON DE RÉSERVATION', num, [59,91,219]);
-  let { y, row, t, gap, hr, m } = buildDocBody(doc, r, b, 42);
+  buildDocHeader(doc, 'BON DE RESERVATION', num, [59,91,219]);
+  let { y, t, m } = buildDocBody(doc, r, b, 46);
 
-  // Montant total
-  doc.setFillColor(232,237,255); doc.rect(m, y-2, 170, 12, 'F');
-  doc.setFontSize(12).setFont('helvetica','bold').setTextColor(59,91,219);
-  doc.text('MONTANT TOTAL DU SÉJOUR', m+2, y+6);
-  doc.text(`${r.montant ? r.montant.toLocaleString('fr-FR') + ' €' : '—'} TTC`, 190, y+6, { align:'right' });
-  y += 18;
+  doc.setFillColor(232,237,255); doc.rect(m, y-2, 170, 14, 'F');
+  doc.setFontSize(11).setFont('helvetica','bold').setTextColor(59,91,219);
+  doc.text('MONTANT TOTAL DU SEJOUR', m+3, y+8);
+  doc.text(fmt(r.montant) + ' TTC', 190, y+8, { align:'right' });
+  y += 20;
 
-  // Conditions
-  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(120,120,140);
-  const lines = doc.splitTextToSize('Ce bon de réservation confirme votre séjour. Un acompte vous sera demandé pour valider définitivement la réservation. Le solde sera à régler avant votre arrivée. Ce document ne constitue pas une facture.', 170);
-  doc.text(lines, m, y); y += lines.length * 4 + 10;
+  doc.setFontSize(8).setFont('helvetica','normal').setTextColor(140,140,160);
+  const cond = doc.splitTextToSize('Ce bon de reservation confirme votre sejour. Un acompte vous sera demande pour valider la reservation. Le solde sera a regler avant votre arrivee. Ce document ne constitue pas une facture.', 170);
+  doc.text(cond, m, y); y += cond.length * 4 + 14;
 
-  // Signature
-  doc.setDrawColor(200,200,200); doc.line(m, y, 190, y); y += 8;
-  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(100,100,120);
-  doc.text('Signature bailleur :', m, y); doc.text('Signature locataire :', 120, y); y += 16;
-  doc.text('____________________', m, y); doc.text('____________________', 120, y);
+  doc.setDrawColor(200,200,200); doc.line(m, y, 190, y); y += 10;
+  doc.setFontSize(9).setFont('helvetica','bold').setTextColor(60,60,80);
+  doc.text('Signature du bailleur', m, y); doc.text('Signature du locataire', 120, y); y += 5;
+  doc.setFont('helvetica','normal').setTextColor(80,80,100);
+  doc.text(p.nom || '', m, y); y += 16;
+  doc.setDrawColor(180,180,180); doc.line(m, y, m+70, y); doc.line(120, y, 190, y); y += 5;
+  doc.setFontSize(8).setTextColor(140,140,160);
+  doc.text('Lu et approuve - Date : ___/___/______', m, y);
+  doc.text('Lu et approuve - Date : ___/___/______', 120, y);
 
-  doc.save(`bon-reservation-${r.guest_nom?.replace(/\s/g,'-') || 'sejour'}-${r.arrivee || ''}.pdf`);
+  doc.save('bon-reservation-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
 }
 
 function genererFactureAcompte() {
   const r = resas.find(x => x.id === docsResaId);
   const b = r ? biens.find(x => x.id === r.bien_id) : null;
-  const pct = parseInt(document.getElementById('docs-acompte-pct').value) || 30;
-  const acompte = Math.round((r.montant || 0) * pct / 100 * 100) / 100;
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const num = `FA-${new Date().getFullYear()}-${String(resas.indexOf(r)+1).padStart(3,'0')}`;
-
-  buildDocHeader(doc, "FACTURE D'ACOMPTE", num, [16,185,129]);
-  let { y, row, t, gap, hr, m } = buildDocBody(doc, r, b, 42);
-
-  // Ligne acompte
-  doc.setFillColor(209,250,229); doc.rect(m, y-2, 170, 18, 'F');
-  doc.setFontSize(10).setFont('helvetica','bold').setTextColor(6,95,70);
-  doc.text(`Acompte ${pct}% — À régler à la réservation`, m+2, y+5);
-  doc.setFontSize(14).doc?.setFont('helvetica','bold');
-  doc.setFontSize(14).setFont('helvetica','bold').setTextColor(6,95,70);
-  doc.text(`${acompte.toLocaleString('fr-FR')} €`, 190, y+11, { align:'right' });
-  y += 24;
-
-  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(120,120,140);
-  doc.text(`Solde restant à régler : ${((r.montant||0) - acompte).toLocaleString('fr-FR')} €`, m, y); y += 6;
-  const lines = doc.splitTextToSize('Cette facture est due à la réservation. Le règlement valide définitivement votre réservation. Mode de paiement accepté : virement bancaire, chèque, espèces.', 170);
-  doc.text(lines, m, y);
-
-  doc.save(`facture-acompte-${r.guest_nom?.replace(/\s/g,'-') || 'sejour'}-${r.arrivee || ''}.pdf`);
-}
-
-function genererFactureSolde() {
-  const r = resas.find(x => x.id === docsResaId);
-  const b = r ? biens.find(x => x.id === r.bien_id) : null;
+  const p = getParams();
   const pct = parseInt(document.getElementById('docs-acompte-pct').value) || 30;
   const acompte = Math.round((r.montant || 0) * pct / 100 * 100) / 100;
   const solde = Math.round(((r.montant || 0) - acompte) * 100) / 100;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-  const num = `FS-${new Date().getFullYear()}-${String(resas.indexOf(r)+1).padStart(3,'0')}`;
+  const num = 'FA-' + new Date().getFullYear() + '-' + String(resas.indexOf(r)+1).padStart(3,'0');
+
+  buildDocHeader(doc, "FACTURE D'ACOMPTE", num, [16,185,129]);
+  let { y, t, m } = buildDocBody(doc, r, b, 46);
+
+  doc.setFillColor(209,250,229); doc.rect(m, y-2, 170, 20, 'F');
+  doc.setFontSize(10).setFont('helvetica','bold').setTextColor(6,95,70);
+  doc.text('Acompte ' + pct + '% - A regler a la reservation', m+3, y+6);
+  doc.setFontSize(14);
+  doc.text(fmt(acompte), 190, y+14, { align:'right' });
+  y += 26;
+
+  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(100,100,120);
+  doc.text('Solde restant a regler : ' + fmt(solde), m, y); y += 7;
+  doc.text('Montant total du sejour : ' + fmt(r.montant), m, y); y += 14;
+
+  doc.setFontSize(8).setTextColor(140,140,160);
+  const note = doc.splitTextToSize('Modes de paiement acceptes : virement bancaire, cheque, especes. Le reglement de cet acompte valide definitivement votre reservation.', 170);
+  doc.text(note, m, y); y += note.length * 4 + 14;
+
+  doc.setDrawColor(200,200,200); doc.line(m, y, m+80, y); y += 5;
+  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
+  doc.text(p.nom || '', m, y); y += 4;
+  doc.setFontSize(8).setTextColor(140,140,160);
+  doc.text('Emis le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+
+  doc.save('facture-acompte-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
+}
+
+function genererFactureSolde() {
+  const r = resas.find(x => x.id === docsResaId);
+  const b = r ? biens.find(x => x.id === r.bien_id) : null;
+  const p = getParams();
+  const pct = parseInt(document.getElementById('docs-acompte-pct').value) || 30;
+  const acompte = Math.round((r.montant || 0) * pct / 100 * 100) / 100;
+  const solde = Math.round(((r.montant || 0) - acompte) * 100) / 100;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const num = 'FS-' + new Date().getFullYear() + '-' + String(resas.indexOf(r)+1).padStart(3,'0');
 
   buildDocHeader(doc, 'FACTURE SOLDE', num, [245,158,11]);
-  let { y, row, t, gap, hr, m } = buildDocBody(doc, r, b, 42);
+  let { y, t, m } = buildDocBody(doc, r, b, 46);
 
-  // Récap acompte / solde
-  doc.setFillColor(254,243,199); doc.rect(m, y-2, 170, 28, 'F');
-  doc.setFontSize(10).setFont('helvetica','normal').setTextColor(146,64,14);
-  doc.text(`Montant total séjour`, m+2, y+5);
-  doc.text(`${(r.montant||0).toLocaleString('fr-FR')} €`, 190, y+5, { align:'right' });
-  doc.text(`Acompte réglé (${pct}%)`, m+2, y+12);
-  doc.text(`- ${acompte.toLocaleString('fr-FR')} €`, 190, y+12, { align:'right' });
-  doc.setDrawColor(245,158,11); doc.line(m+2, y+16, 188, y+16);
-  doc.setFontSize(12).setFont('helvetica','bold');
-  doc.text('SOLDE À RÉGLER', m+2, y+24);
-  doc.setFontSize(14);
-  doc.text(`${solde.toLocaleString('fr-FR')} €`, 190, y+24, { align:'right' });
-  y += 34;
+  doc.setFillColor(254,243,199); doc.rect(m, y-2, 170, 30, 'F');
+  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(146,64,14);
+  doc.text('Montant total du sejour', m+3, y+6); doc.text(fmt(r.montant), 190, y+6, { align:'right' });
+  doc.text('Acompte deja regle (' + pct + '%)', m+3, y+14); doc.text('- ' + fmt(acompte), 190, y+14, { align:'right' });
+  doc.setDrawColor(245,158,11); doc.line(m+3, y+18, 187, y+18);
+  doc.setFontSize(11).setFont('helvetica','bold');
+  doc.text('SOLDE A REGLER', m+3, y+26); doc.setFontSize(14); doc.text(fmt(solde), 190, y+26, { align:'right' });
+  y += 36;
 
-  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(120,120,140);
-  const lines = doc.splitTextToSize(`Ce solde est à régler avant votre arrivée le ${formatDate(r.arrivee)}. Mode de paiement accepté : virement bancaire, chèque, espèces. En cas de non-paiement, la réservation peut être annulée.`, 170);
-  doc.text(lines, m, y);
+  doc.setFontSize(8).setFont('helvetica','normal').setTextColor(140,140,160);
+  const note = doc.splitTextToSize('Ce solde est a regler avant votre arrivee le ' + formatDate(r.arrivee) + '. Modes de paiement : virement bancaire, cheque, especes.', 170);
+  doc.text(note, m, y); y += note.length * 4 + 14;
 
-  doc.save(`facture-solde-${r.guest_nom?.replace(/\s/g,'-') || 'sejour'}-${r.arrivee || ''}.pdf`);
+  doc.setDrawColor(200,200,200); doc.line(m, y, m+80, y); y += 5;
+  doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
+  doc.text(p.nom || '', m, y); y += 4;
+  doc.setFontSize(8).setTextColor(140,140,160);
+  doc.text('Emis le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+
+  doc.save('facture-solde-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
 }
 </script>
 
