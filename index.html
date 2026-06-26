@@ -1958,7 +1958,7 @@ function renderResas() {
           <div class="resa-dates">${formatDate(r.arrivee)} → ${formatDate(r.depart)} · ${nuits} nuit${nuits > 1 ? 's' : ''} · ${r.nb_voyageurs || 1} pers.</div>
           <div class="resa-bien">${bien ? bien.nom : ''} · ${plateformes[r.plateforme] || r.plateforme || ''}</div>
           ${(() => {
-            const docs = r.docs_recus ? JSON.parse(r.docs_recus) : {};
+            const docs = (r.docs_recus && typeof r.docs_recus === "object") ? r.docs_recus : {};
             const manquants = [];
             if (!docs.piece) manquants.push('🪪 Pièce d\'identité');
             if (!docs.contrat) manquants.push('📋 Contrat');
@@ -2104,7 +2104,7 @@ function openModalResa(id) {
       document.getElementById('resa-piece-type').value = r.piece_type || '';
       document.getElementById('resa-piece-numero').value = r.piece_numero || '';
       document.getElementById('resa-piece-expiration').value = r.piece_expiration || '';
-      const docs = r.docs_recus ? JSON.parse(r.docs_recus) : {};
+      const docs = (r.docs_recus && typeof r.docs_recus === "object") ? r.docs_recus : {};
       document.getElementById('resa-doc-piece').checked = docs.piece || false;
       document.getElementById('resa-doc-contrat').checked = docs.contrat || false;
       document.getElementById('resa-doc-acompte').checked = docs.acompte || false;
