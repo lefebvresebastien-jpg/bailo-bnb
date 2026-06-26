@@ -1549,6 +1549,47 @@
           </div>
         </div>
       </div>
+
+      <div style="border-top:1px solid var(--border);margin:12px 0 8px;padding-top:4px">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:12px">🪪 Documents du voyageur</div>
+        <div class="form-group">
+          <label class="form-label">Type de pièce d'identité</label>
+          <select class="form-control" id="resa-piece-type">
+            <option value="">Non renseigné</option>
+            <option value="cni">Carte nationale d'identité</option>
+            <option value="passeport">Passeport</option>
+            <option value="titre_sejour">Titre de séjour</option>
+            <option value="permis">Permis de conduire</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Numéro de pièce d'identité</label>
+            <input class="form-control" id="resa-piece-numero" placeholder="Ex: 123456789">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date d'expiration</label>
+            <input class="form-control" type="date" id="resa-piece-expiration">
+          </div>
+        </div>
+        <div style="margin-top:8px">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">Checklist documents reçus</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" id="resa-doc-piece"> Pièce d'identité reçue et vérifiée
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" id="resa-doc-contrat"> Contrat signé par le locataire
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" id="resa-doc-acompte"> Acompte encaissé
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" id="resa-doc-assurance"> Attestation assurance voyageur (optionnel)
+            </label>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-resa')">Annuler</button>
@@ -1916,6 +1957,14 @@ function renderResas() {
           <div class="resa-guest">${r.guest_nom || 'Voyageur inconnu'}</div>
           <div class="resa-dates">${formatDate(r.arrivee)} → ${formatDate(r.depart)} · ${nuits} nuit${nuits > 1 ? 's' : ''} · ${r.nb_voyageurs || 1} pers.</div>
           <div class="resa-bien">${bien ? bien.nom : ''} · ${plateformes[r.plateforme] || r.plateforme || ''}</div>
+          ${(() => {
+            const docs = r.docs_recus ? JSON.parse(r.docs_recus) : {};
+            const manquants = [];
+            if (!docs.piece) manquants.push('🪪 Pièce d\'identité');
+            if (!docs.contrat) manquants.push('📋 Contrat');
+            if (!docs.acompte) manquants.push('💳 Acompte');
+            return manquants.length ? `<div style="margin-top:4px;font-size:11px;color:#ef4444;font-weight:600">⚠️ Manquant : ${manquants.join(' · ')}</div>` : `<div style="margin-top:4px;font-size:11px;color:#10b981;font-weight:600">✅ Dossier complet</div>`;
+          })()}
         </div>
         <div style="text-align:right;flex-shrink:0">
           <div class="resa-montant">${r.montant ? r.montant + ' €' : '—'}</div>
@@ -1991,6 +2040,15 @@ async function saveResa() {
     taxe_taux: parseFloat(document.getElementById('resa-taxe-taux').value) || null,
     depot_garantie: parseFloat(document.getElementById('resa-depot').value) || null,
     depot_statut: document.getElementById('resa-depot-statut').value,
+    piece_type: document.getElementById('resa-piece-type').value || null,
+    piece_numero: document.getElementById('resa-piece-numero').value || null,
+    piece_expiration: document.getElementById('resa-piece-expiration').value || null,
+    docs_recus: JSON.stringify({
+      piece: document.getElementById('resa-doc-piece').checked,
+      contrat: document.getElementById('resa-doc-contrat').checked,
+      acompte: document.getElementById('resa-doc-acompte').checked,
+      assurance: document.getElementById('resa-doc-assurance').checked
+    }),
     token_voyageur: token
   };
   if (id) {
@@ -2043,6 +2101,14 @@ function openModalResa(id) {
       document.getElementById('resa-taxe-taux').value = r.taxe_taux || '';
       document.getElementById('resa-depot').value = r.depot_garantie || '';
       document.getElementById('resa-depot-statut').value = r.depot_statut || 'en_attente';
+      document.getElementById('resa-piece-type').value = r.piece_type || '';
+      document.getElementById('resa-piece-numero').value = r.piece_numero || '';
+      document.getElementById('resa-piece-expiration').value = r.piece_expiration || '';
+      const docs = r.docs_recus ? JSON.parse(r.docs_recus) : {};
+      document.getElementById('resa-doc-piece').checked = docs.piece || false;
+      document.getElementById('resa-doc-contrat').checked = docs.contrat || false;
+      document.getElementById('resa-doc-acompte').checked = docs.acompte || false;
+      document.getElementById('resa-doc-assurance').checked = docs.assurance || false;
       calcTaxeResa();
     }
   }
@@ -2980,6 +3046,9 @@ async function genererContrat() {
   field('Adresse du locataire', '_______________________________________________');
   field('Email du locataire', resa?.guest_email || '_______________');
   field('Telephone du locataire', resa?.guest_tel || '_______________');
+  field('Piece d identite', resa?.piece_type ? (
+    { cni: 'Carte nationale d identite', passeport: 'Passeport', titre_sejour: 'Titre de sejour', permis: 'Permis de conduire' }[resa.piece_type] || resa.piece_type
+  ) + (resa?.piece_numero ? ' No ' + resa.piece_numero : '') + (resa?.piece_expiration ? ' (exp. ' + formatDate(resa.piece_expiration) + ')' : '') : '_______________');
   field('Nombre de personnes', String(resa?.nb_voyageurs || 1) + ' personne(s)');
 
   // ART 2 - BIEN
