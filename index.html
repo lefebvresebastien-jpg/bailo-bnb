@@ -2,8 +2,16 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Bailo Airbnb — Location courte durée</title>
+<meta name="description" content="Bailo Airbnb — Gestion de location courte durée">
+<meta name="theme-color" content="#3b5bdb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Bailo Airbnb">
+<link rel="manifest" href="/manifest-bnb.json">
+<link rel="apple-touch-icon" href="/icon-bnb-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
@@ -3616,6 +3624,13 @@ async function init() {
   loadMessagesBailleur(); // Badge sidebar
   // Mobile
   if (window.innerWidth <= 768) document.getElementById('menu-btn').style.display = '';
+}
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw-bnb.js').catch(() => {});
+  });
 }
 
 init();
