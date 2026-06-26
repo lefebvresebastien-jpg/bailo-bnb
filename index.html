@@ -2242,12 +2242,16 @@ function updateKPIs() {
   document.getElementById('kpi-biens').textContent = biens.length;
   const now = new Date();
   const anneeEnCours = now.getFullYear();
+  const moisDebut = new Date(now.getFullYear(), now.getMonth(), 1);
+  const moisFin = new Date(now.getFullYear(), now.getMonth()+1, 1);
 
+  // Réservations actives CE MOIS (arrivée ou séjour en cours durant le mois)
   const monthResas = resas.filter(r => {
     if (!r.arrivee || r.statut==='annulee') return false;
-    const d = new Date(r.arrivee);
-    return d.getMonth()===now.getMonth() && d.getFullYear()===anneeEnCours;
+    return new Date(r.depart) > moisDebut && new Date(r.arrivee) < moisFin;
   });
+
+  // Réservations de l'année (par date d'arrivée)
   const anneeResas = resas.filter(r => {
     if (!r.arrivee || r.statut==='annulee') return false;
     return new Date(r.arrivee).getFullYear()===anneeEnCours;
@@ -2266,8 +2270,10 @@ function updateKPIs() {
   monthResas.forEach(r => {
     if (!r.arrivee||!r.depart) return;
     let d = new Date(r.arrivee);
-    while (d < new Date(r.depart)) {
-      if (d.getMonth()===now.getMonth()) bookedDaysSet.add(d.getDate());
+    const end = new Date(r.depart);
+    while (d < end) {
+      // Compter seulement les jours dans le mois en cours
+      if (d >= moisDebut && d < moisFin) bookedDaysSet.add(d.getDate());
       d.setDate(d.getDate()+1);
     }
   });
@@ -2308,8 +2314,10 @@ function renderDashChart() {
   const mois6 = [];
   for (let i=5; i>=0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    const m = d.getMonth(), y = d.getFullYear();
-    const ca = resas.filter(r => r.statut!=='annulee' && r.arrivee && new Date(r.arrivee).getMonth()===m && new Date(r.arrivee).getFullYear()===y)
+    const mDebut = new Date(d.getFullYear(), d.getMonth(), 1);
+    const mFin = new Date(d.getFullYear(), d.getMonth()+1, 1);
+    const ca = resas.filter(r => r.statut!=='annulee' && r.arrivee && r.depart &&
+      new Date(r.depart) > mDebut && new Date(r.arrivee) < mFin)
       .reduce((s,r) => s+(r.montant||0), 0);
     mois6.push({ label: d.toLocaleDateString('fr-FR',{month:'short'}), ca, isCurrent: i===0 });
   }
