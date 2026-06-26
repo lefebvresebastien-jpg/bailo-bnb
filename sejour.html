@@ -493,28 +493,22 @@ function renderHeader() {
   const headerOverlay = document.getElementById('header-overlay');
   const headerInfo = document.getElementById('header-info');
 
-  if (photos.length > 0) {
-    if (photos.length === 1) {
-      headerPhotos.style.height = '220px';
-      headerPhotos.innerHTML = `<img src="${photos[0]}" style="width:100%;height:220px;object-fit:cover">`;
-    } else {
-      headerPhotos.innerHTML = `
-        <div class="header-photos-grid" style="height:220px">
-          <img src="${photos[0]}" style="width:100%;height:100%;object-fit:cover">
-          <div style="display:grid;grid-template-rows:1fr 1fr;gap:2px">
-            ${photos[1] ? `<img src="${photos[1]}" style="width:100%;height:100%;object-fit:cover">` : '<div style="background:#2f4ac0"></div>'}
-            ${photos[2] ? `<img src="${photos[2]}" style="width:100%;height:100%;object-fit:cover">` : '<div style="background:#2f4ac0"></div>'}
-          </div>
-        </div>`;
-    }
-    headerOverlay.style.display = 'block';
-  } else {
-    headerPhotos.innerHTML = `<div class="header-no-photo" style="height:180px"><div style="font-size:48px">🏠</div><div style="font-size:14px;opacity:.8">${bien?.nom || 'Votre logement'}</div></div>`;
-  }
+  // Header compact propre — pas de photos en fond (réservées à l'onglet Photos)
+  headerOverlay.style.display = 'none';
+  headerPhotos.style.height = '0';
+  headerPhotos.innerHTML = '';
 
+  // Juste une bannière colorée avec nom + adresse
   headerInfo.style.display = 'block';
+  headerInfo.style.position = 'relative';
+  headerInfo.style.background = 'linear-gradient(135deg, #3b5bdb, #2f4ac0)';
+  headerInfo.style.padding = '20px';
+  headerInfo.style.color = 'white';
   document.getElementById('bien-nom-header').textContent = bien?.nom || 'Votre séjour';
   document.getElementById('bien-addr-header').textContent = bien?.adresse || '';
+
+  // Stocker les photos pour l'onglet dédié
+  window._bienPhotos = photos;
 }
 
 function renderAccueil() {
@@ -583,7 +577,30 @@ function renderAcces() {
 function renderPhotos() {
   const photos = bien?.photos || [];
   const grid = document.getElementById('galerie-grid');
-  if (!photos.length) return;
+  if (!photos.length) {
+    grid.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:32px;grid-column:span 3;font-size:13px">Aucune photo disponible</div>';
+    return;
+  }
+
+  // Mosaïque hero en haut si plusieurs photos
+  const section = document.getElementById('section-photos');
+  const heroId = 'photos-hero';
+  if (!document.getElementById(heroId) && photos.length > 1) {
+    const hero = document.createElement('div');
+    hero.id = heroId;
+    hero.style.cssText = 'margin:-16px -16px 16px;border-radius:0;overflow:hidden';
+    hero.innerHTML = `
+      <div style="display:grid;grid-template-columns:2fr 1fr;grid-template-rows:160px 160px;gap:3px;max-height:323px">
+        <div style="grid-row:span 2;overflow:hidden;cursor:pointer" onclick="openPhoto('${photos[0]}')">
+          <img src="${photos[0]}" style="width:100%;height:100%;object-fit:cover;display:block">
+        </div>
+        ${photos[1] ? `<div style="overflow:hidden;cursor:pointer" onclick="openPhoto('${photos[1]}')"><img src="${photos[1]}" style="width:100%;height:100%;object-fit:cover;display:block"></div>` : '<div style="background:#e5e7eb"></div>'}
+        ${photos[2] ? `<div style="overflow:hidden;cursor:pointer;position:relative" onclick="openPhoto('${photos[2]}')"><img src="${photos[2]}" style="width:100%;height:100%;object-fit:cover;display:block">${photos.length > 3 ? `<div style="position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:700">+${photos.length - 3}</div>` : ''}</div>` : '<div style="background:#e5e7eb"></div>'}
+      </div>`;
+    section.insertBefore(hero, section.firstChild);
+  }
+
+  // Grille complète dessous
   grid.innerHTML = photos.map((src, i) => `
     <div class="galerie-thumb" onclick="openPhoto('${src}')">
       <img src="${src}" alt="Photo ${i+1}" loading="lazy">
