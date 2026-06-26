@@ -2107,18 +2107,24 @@ function renderCal() {
   const daysInMonth = new Date(year, month+1, 0).getDate();
   const today = new Date();
 
-  // Map jour → réservations (multi-biens)
+  // Map jour → réservations (multi-biens) — inclut les resas qui chevauchent le mois
   const dayMap = {};
-  resas.filter(r => r.statut !== 'annulee').forEach(r => {
-    if (!r.arrivee || !r.depart) return;
+  const moisDebut = new Date(year, month, 1);
+  const moisFin = new Date(year, month+1, 1);
+  resas.filter(r => r.statut !== 'annulee' && r.arrivee && r.depart)
+    .filter(r => new Date(r.depart) > moisDebut && new Date(r.arrivee) < moisFin)
+    .forEach(r => {
     let d = new Date(r.arrivee);
     const end = new Date(r.depart);
     const color = getBienColor(r.bien_id);
+    // Déterminer si le séjour est en cours aujourd'hui
+    const todayStr = new Date().toISOString().slice(0,10);
+    const isEnCours = r.arrivee <= todayStr && r.depart > todayStr;
     while (d < end) {
       if (d.getFullYear() === year && d.getMonth() === month) {
         const day = d.getDate();
         if (!dayMap[day]) dayMap[day] = [];
-        dayMap[day].push({ color, r });
+        dayMap[day].push({ color, r, isEnCours });
       }
       d.setDate(d.getDate()+1);
     }
@@ -2130,11 +2136,13 @@ function renderCal() {
     const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
     const bookings = dayMap[d] || [];
     const isBooked = bookings.length > 0;
-    // Couleur du premier bien réservé ce jour
-    const bgColor = isBooked && !isToday ? bookings[0].color + '25' : '';
+    const isEnCours = bookings.some(b => b.isEnCours);
     const dotColor = isBooked && !isToday ? bookings[0].color : '';
+    // En cours = vert, réservé futur = couleur du bien atténuée
+    const bgColor = isEnCours ? '#d1fae5' : (isBooked && !isToday ? bookings[0].color + '22' : '');
+    const borderColor = isEnCours ? '#10b981' : (isBooked && !isToday ? dotColor : '');
     html += `<div class="cal-day ${isToday ? 'today' : ''}" 
-      style="${bgColor ? 'background:'+bgColor+';border:1px solid '+dotColor+';' : ''}" 
+      style="${bgColor ? 'background:'+bgColor+';border:1px solid '+borderColor+';' : ''}" 
       onclick="calDayClick(${d})" title="${bookings.map(b => biens.find(x=>x.id===b.r.bien_id)?.nom||'').join(', ')}">
       ${d}
       ${bookings.length > 1 ? `<div style="position:absolute;bottom:2px;right:2px;font-size:8px;background:${dotColor};color:white;border-radius:8px;padding:0 3px">${bookings.length}</div>` : ''}
@@ -2142,11 +2150,10 @@ function renderCal() {
   }
   document.getElementById('cal-grid').innerHTML = html;
 
-  // Stats du mois
+  // Stats du mois — inclut resas qui chevauchent
   const monthResas = resas.filter(r => {
     if (!r.arrivee || r.statut === 'annulee') return false;
-    const rd = new Date(r.arrivee);
-    return rd.getFullYear()===year && rd.getMonth()===month;
+    return new Date(r.depart) > moisDebut && new Date(r.arrivee) < moisFin;
   });
   const monthNuits = monthResas.reduce((s,r) => s + (r.arrivee&&r.depart ? Math.round((new Date(r.depart)-new Date(r.arrivee))/86400000) : 0), 0);
   const monthCA = monthResas.reduce((s,r) => s + (r.montant||0), 0);
