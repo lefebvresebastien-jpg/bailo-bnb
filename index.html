@@ -3149,7 +3149,8 @@ function genererBonResa() {
   doc.text(p.nom || '', m, y); y += 16;
   doc.setDrawColor(180,180,180); doc.line(m, y, m+70, y); doc.line(120, y, 190, y); y += 5;
   doc.setFontSize(8).setTextColor(140,140,160);
-  doc.text('Lu et approuve - Date : ___/___/______', m, y);
+  const dateAujourdhui = new Date().toLocaleDateString('fr-FR');
+  doc.text('Lu et approuve le ' + dateAujourdhui, m, y);
   doc.text('Lu et approuve - Date : ___/___/______', 120, y);
   // Signature bailleur
   addSignatureToPDF(doc, m, y - 28, 55, 22);
@@ -3190,7 +3191,7 @@ function genererFactureAcompte() {
   doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
   doc.text(p.nom || '', m, y); y += 4;
   doc.setFontSize(8).setTextColor(140,140,160);
-  doc.text('Emis le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+  doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
   addSignatureToPDF(doc, m, y - 20, 55, 18);
 
   doc.save('facture-acompte-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
@@ -3227,7 +3228,7 @@ function genererFactureSolde() {
   doc.setFontSize(9).setFont('helvetica','normal').setTextColor(80,80,100);
   doc.text(p.nom || '', m, y); y += 4;
   doc.setFontSize(8).setTextColor(140,140,160);
-  doc.text('Emis le ' + new Date().toLocaleDateString('fr-FR'), m, y);
+  doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
   addSignatureToPDF(doc, m, y - 20, 55, 18);
 
   doc.save('facture-solde-' + (r.guest_nom||'sejour').replace(/\s/g,'-') + '-' + (r.arrivee||'') + '.pdf');
