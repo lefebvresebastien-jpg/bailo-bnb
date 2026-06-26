@@ -354,7 +354,9 @@
 
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
-      <div class="kpi-grid">
+
+      <!-- KPIs enrichis -->
+      <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
         <div class="kpi-card">
           <div class="kpi-icon">🏠</div>
           <div class="kpi-label">Biens actifs</div>
@@ -363,15 +365,15 @@
         </div>
         <div class="kpi-card">
           <div class="kpi-icon">📅</div>
-          <div class="kpi-label">Réservations actives</div>
+          <div class="kpi-label">Ce mois</div>
           <div class="kpi-value" id="kpi-resas">0</div>
-          <div class="kpi-sub">ce mois-ci</div>
+          <div class="kpi-sub">réservations</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-icon">💶</div>
           <div class="kpi-label">CA ce mois</div>
-          <div class="kpi-value" id="kpi-ca">0 €</div>
-          <div class="kpi-sub">revenus bruts</div>
+          <div class="kpi-value" id="kpi-ca" style="font-size:20px">0 €</div>
+          <div class="kpi-sub" id="kpi-ca-annee">année : 0 €</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-icon">📈</div>
@@ -379,75 +381,130 @@
           <div class="kpi-value" id="kpi-taux">0%</div>
           <div class="kpi-sub">mois en cours</div>
         </div>
+        <div class="kpi-card">
+          <div class="kpi-icon">🌙</div>
+          <div class="kpi-label">RevPAN</div>
+          <div class="kpi-value" id="kpi-revpan" style="font-size:20px">— €</div>
+          <div class="kpi-sub">revenu/nuit dispo</div>
+        </div>
+        <div class="kpi-card" id="kpi-depot-card" style="display:none">
+          <div class="kpi-icon">🔒</div>
+          <div class="kpi-label">Dépôts en attente</div>
+          <div class="kpi-value" id="kpi-depot" style="font-size:20px;color:var(--warning)">0</div>
+          <div class="kpi-sub">à restituer/vérifier</div>
+        </div>
       </div>
 
+      <!-- Alertes dynamiques -->
+      <div id="dash-alertes" style="margin-bottom:20px"></div>
+
       <div class="grid-2">
+        <!-- Réservations à venir -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Réservations à venir</span>
-            <a onclick="showPage('reservations')" style="font-size:12px;color:var(--primary);cursor:pointer">Voir tout</a>
+            <span class="card-title">📅 Prochains séjours</span>
+            <a onclick="showPage('reservations')" style="font-size:12px;color:var(--primary);cursor:pointer">Voir tout →</a>
           </div>
           <div class="card-body">
             <div class="resa-list" id="dash-resas-list">
-              <div class="empty-state">
-                <div class="empty-icon">📅</div>
-                <p>Aucune réservation à venir</p>
-                <button class="btn btn-primary" onclick="openModalResa()">+ Ajouter</button>
-              </div>
+              <div class="empty-state"><div class="empty-icon">📅</div><p>Aucune réservation à venir</p><button class="btn btn-primary" onclick="openModalResa()">+ Ajouter</button></div>
             </div>
           </div>
         </div>
 
+        <!-- Mini calendrier + stats rapides -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">Biens</span>
-            <a onclick="showPage('biens')" style="font-size:12px;color:var(--primary);cursor:pointer">Gérer</a>
+            <span class="card-title">📊 Activité</span>
+            <a onclick="showPage('export-comptable')" style="font-size:12px;color:var(--primary);cursor:pointer">Export →</a>
           </div>
           <div class="card-body">
+            <!-- Graphique barres mensuelles -->
+            <div style="margin-bottom:16px">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;font-weight:600">CA SUR 6 MOIS</div>
+              <div id="dash-chart" style="display:flex;align-items:flex-end;gap:4px;height:60px"></div>
+              <div id="dash-chart-labels" style="display:flex;gap:4px;margin-top:4px"></div>
+            </div>
+            <!-- Biens résumé -->
             <div id="dash-biens-list">
-              <div class="empty-state">
-                <div class="empty-icon">🏠</div>
-                <p>Aucun bien enregistré</p>
-                <button class="btn btn-primary" onclick="showPage('biens')">+ Ajouter un bien</button>
-              </div>
+              <div class="empty-state"><div class="empty-icon">🏠</div><p>Aucun bien enregistré</p><button class="btn btn-primary" onclick="showPage('biens')">+ Ajouter</button></div>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Rappels intelligents -->
       <div class="card">
-        <div class="card-header">
-          <span class="card-title">Rappels importants</span>
-        </div>
+        <div class="card-header"><span class="card-title">🔔 Rappels & Actions</span></div>
         <div class="card-body">
-          <div class="checklist" id="dash-rappels">
-            <div class="check-item" onclick="showPage('demarches')">
-              <div class="check-box">!</div>
-              <div>
-                <div class="check-title">Déclaration mairie obligatoire</div>
-                <div class="check-desc">Tout meublé de tourisme doit être déclaré en mairie (Cerfa 14004). Consulter les démarches admin.</div>
-              </div>
-            </div>
-            <div class="check-item" onclick="showPage('fiscalite')">
-              <div class="check-box">€</div>
-              <div>
-                <div class="check-title">Vérifier votre régime fiscal 2026</div>
-                <div class="check-desc">Loi Le Meur : seuils micro-BIC modifiés. Non classé = 15 000€ / 30%. Simulez votre situation.</div>
-              </div>
-            </div>
-          </div>
+          <div class="checklist" id="dash-rappels"></div>
         </div>
       </div>
     </div>
 
-    <!-- CALENDRIER -->
+    <!-- CALENDRIER MULTI-BIENS -->
     <div class="page" id="page-calendrier">
+      <!-- Légende biens -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-body" style="padding:12px 16px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="font-size:12px;font-weight:600;color:var(--text-muted)">Biens :</span>
+            <div id="cal-legende" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+            <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+              <span style="font-size:11px;color:var(--text-muted)">Vue :</span>
+              <select class="form-control" id="cal-vue" onchange="renderCal()" style="width:auto;font-size:12px;padding:4px 8px">
+                <option value="mois">Mois</option>
+                <option value="semaine">Semaine</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="grid-2">
         <div class="card">
           <div class="card-header">
-            <div class="cal-nav">
+            <div class="cal-nav" style="width:100%">
               <button class="btn btn-outline" onclick="calNav(-1)">‹</button>
               <span class="cal-month" id="cal-month-label"></span>
+              <button class="btn btn-outline" onclick="calNav(1)">›</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="cal-grid" id="cal-grid"></div>
+            <!-- Légende statuts -->
+            <div style="margin-top:12px;display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text-muted)">
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--primary);border-radius:50%;display:inline-block"></span>Aujourd'hui</span>
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#fef3c7;border:1px solid #f59e0b;border-radius:2px;display:inline-block"></span>Réservé</span>
+              <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#d1fae5;border:1px solid #10b981;border-radius:2px;display:inline-block"></span>En cours</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title" id="cal-detail-title">Séjours du mois</span>
+          </div>
+          <div class="card-body">
+            <!-- Stats rapides du mois -->
+            <div id="cal-stats-mois" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px"></div>
+            <div class="resa-list" id="cal-resa-list">
+              <div class="empty-state"><p>Aucune réservation ce mois</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vue semaine (cachée par défaut) -->
+      <div id="cal-semaine-view" style="display:none">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Vue semaine</span></div>
+          <div class="card-body" style="overflow-x:auto">
+            <div id="cal-semaine-grid" style="display:grid;min-width:600px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
               <button class="btn btn-outline" onclick="calNav(1)">›</button>
             </div>
           </div>
@@ -2024,24 +2081,46 @@ function openModalResa(id) {
   document.getElementById('modal-resa').classList.add('open');
 }
 
-// CALENDRIER
+// COULEURS PAR BIEN
+const BIEN_COLORS = ['#3b5bdb','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
+function getBienColor(bienId) {
+  const idx = biens.findIndex(b => b.id === bienId);
+  return BIEN_COLORS[idx % BIEN_COLORS.length] || '#6b7280';
+}
+
+// CALENDRIER MULTI-BIENS
 function renderCal() {
+  const vue = document.getElementById('cal-vue')?.value || 'mois';
   const year = calDate.getFullYear(), month = calDate.getMonth();
   document.getElementById('cal-month-label').textContent = new Date(year, month).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-  const days = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+  // Légende biens avec couleurs
+  const legEl = document.getElementById('cal-legende');
+  if (legEl) legEl.innerHTML = biens.map((b, i) => `
+    <span style="display:flex;align-items:center;gap:5px;font-size:12px">
+      <span style="width:10px;height:10px;border-radius:50%;background:${BIEN_COLORS[i%BIEN_COLORS.length]};flex-shrink:0"></span>
+      ${b.nom}
+    </span>`).join('');
+
+  const days = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
   const firstDay = new Date(year, month, 1).getDay() || 7;
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
   const today = new Date();
 
-  // Jours réservés ce mois
-  const bookedDays = new Set();
+  // Map jour → réservations (multi-biens)
+  const dayMap = {};
   resas.filter(r => r.statut !== 'annulee').forEach(r => {
     if (!r.arrivee || !r.depart) return;
     let d = new Date(r.arrivee);
     const end = new Date(r.depart);
+    const color = getBienColor(r.bien_id);
     while (d < end) {
-      if (d.getFullYear() === year && d.getMonth() === month) bookedDays.add(d.getDate());
-      d.setDate(d.getDate() + 1);
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        const day = d.getDate();
+        if (!dayMap[day]) dayMap[day] = [];
+        dayMap[day].push({ color, r });
+      }
+      d.setDate(d.getDate()+1);
     }
   });
 
@@ -2049,59 +2128,214 @@ function renderCal() {
   for (let i = 1; i < firstDay; i++) html += '<div class="cal-day empty"></div>';
   for (let d = 1; d <= daysInMonth; d++) {
     const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-    const isBooked = bookedDays.has(d);
-    html += `<div class="cal-day ${isToday ? 'today' : ''} ${isBooked && !isToday ? 'booked' : ''}">${d}</div>`;
+    const bookings = dayMap[d] || [];
+    const isBooked = bookings.length > 0;
+    // Couleur du premier bien réservé ce jour
+    const bgColor = isBooked && !isToday ? bookings[0].color + '25' : '';
+    const dotColor = isBooked && !isToday ? bookings[0].color : '';
+    html += `<div class="cal-day ${isToday ? 'today' : ''}" 
+      style="${bgColor ? 'background:'+bgColor+';border:1px solid '+dotColor+';' : ''}" 
+      onclick="calDayClick(${d})" title="${bookings.map(b => biens.find(x=>x.id===b.r.bien_id)?.nom||'').join(', ')}">
+      ${d}
+      ${bookings.length > 1 ? `<div style="position:absolute;bottom:2px;right:2px;font-size:8px;background:${dotColor};color:white;border-radius:8px;padding:0 3px">${bookings.length}</div>` : ''}
+    </div>`;
   }
   document.getElementById('cal-grid').innerHTML = html;
 
-  // Réservations du mois
+  // Stats du mois
   const monthResas = resas.filter(r => {
-    if (!r.arrivee) return false;
-    const d = new Date(r.arrivee);
-    return d.getFullYear() === year && d.getMonth() === month;
+    if (!r.arrivee || r.statut === 'annulee') return false;
+    const rd = new Date(r.arrivee);
+    return rd.getFullYear()===year && rd.getMonth()===month;
   });
+  const monthNuits = monthResas.reduce((s,r) => s + (r.arrivee&&r.depart ? Math.round((new Date(r.depart)-new Date(r.arrivee))/86400000) : 0), 0);
+  const monthCA = monthResas.reduce((s,r) => s + (r.montant||0), 0);
+  const statsEl = document.getElementById('cal-stats-mois');
+  if (statsEl) statsEl.innerHTML = [
+    { label: 'Réservations', val: monthResas.length },
+    { label: 'Nuits', val: monthNuits },
+    { label: 'CA', val: fmt(monthCA) }
+  ].map(s => `<div style="background:var(--bg);border-radius:8px;padding:8px;text-align:center">
+    <div style="font-size:16px;font-weight:700;color:var(--primary)">${s.val}</div>
+    <div style="font-size:10px;color:var(--text-muted)">${s.label}</div>
+  </div>`).join('');
+
+  // Liste réservations du mois
   const calList = document.getElementById('cal-resa-list');
+  document.getElementById('cal-detail-title').textContent = 'Séjours — ' + new Date(year,month).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
   calList.innerHTML = monthResas.length ? monthResas.map(r => {
     const bien = biens.find(b => b.id === r.bien_id);
+    const color = getBienColor(r.bien_id);
+    const nuits = r.arrivee&&r.depart ? Math.round((new Date(r.depart)-new Date(r.arrivee))/86400000) : '—';
     return `<div class="resa-item" onclick="openModalResa('${r.id}')">
+      <div class="resa-color" style="background:${color}"></div>
       <div class="resa-info">
-        <div class="resa-guest">${r.guest_nom || '—'}</div>
-        <div class="resa-dates">${formatDate(r.arrivee)} → ${formatDate(r.depart)}</div>
-        <div class="resa-bien">${bien ? bien.nom : ''}</div>
+        <div class="resa-guest">${r.guest_nom||'—'}</div>
+        <div class="resa-dates">${formatDate(r.arrivee)} → ${formatDate(r.depart)} · ${nuits} nuit(s)</div>
+        <div class="resa-bien" style="color:${color}">${bien?.nom||''}</div>
       </div>
-      <div class="resa-montant">${r.montant ? r.montant + ' €' : '—'}</div>
+      <div class="resa-montant">${r.montant ? fmt(r.montant) : '—'}</div>
     </div>`;
   }).join('') : '<div class="empty-state"><p>Aucune réservation ce mois</p></div>';
 }
 
+function calDayClick(day) {
+  const year = calDate.getFullYear(), month = calDate.getMonth();
+  const clickDate = new Date(year, month, day).toISOString().slice(0,10);
+  const dayResas = resas.filter(r => r.arrivee <= clickDate && r.depart > clickDate && r.statut !== 'annulee');
+  if (dayResas.length === 1) openModalResa(dayResas[0].id);
+}
+
 function calNav(dir) {
-  calDate.setMonth(calDate.getMonth() + dir);
+  calDate.setMonth(calDate.getMonth()+dir);
   renderCal();
 }
 
-// KPIs
+// KPIs ENRICHIS
 function updateKPIs() {
   document.getElementById('kpi-biens').textContent = biens.length;
   const now = new Date();
+  const anneeEnCours = now.getFullYear();
+
   const monthResas = resas.filter(r => {
-    if (!r.arrivee || r.statut === 'annulee') return false;
+    if (!r.arrivee || r.statut==='annulee') return false;
     const d = new Date(r.arrivee);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return d.getMonth()===now.getMonth() && d.getFullYear()===anneeEnCours;
   });
+  const anneeResas = resas.filter(r => {
+    if (!r.arrivee || r.statut==='annulee') return false;
+    return new Date(r.arrivee).getFullYear()===anneeEnCours;
+  });
+
   document.getElementById('kpi-resas').textContent = monthResas.length;
-  const ca = monthResas.reduce((s, r) => s + (r.montant || 0), 0);
-  document.getElementById('kpi-ca').textContent = ca.toLocaleString('fr-FR') + ' €';
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const bookedDays = new Set();
+
+  const caMonth = monthResas.reduce((s,r) => s+(r.montant||0), 0);
+  const caAnnee = anneeResas.reduce((s,r) => s+(r.montant||0), 0);
+  document.getElementById('kpi-ca').textContent = fmt(caMonth).replace(' EUR','€');
+  const kpiSub = document.getElementById('kpi-ca-annee');
+  if (kpiSub) kpiSub.textContent = 'année : ' + fmt(caAnnee).replace(' EUR','€');
+
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const bookedDaysSet = new Set();
   monthResas.forEach(r => {
-    if (!r.arrivee || !r.depart) return;
+    if (!r.arrivee||!r.depart) return;
     let d = new Date(r.arrivee);
     while (d < new Date(r.depart)) {
-      if (d.getMonth() === now.getMonth()) bookedDays.add(d.getDate());
-      d.setDate(d.getDate() + 1);
+      if (d.getMonth()===now.getMonth()) bookedDaysSet.add(d.getDate());
+      d.setDate(d.getDate()+1);
     }
   });
-  document.getElementById('kpi-taux').textContent = Math.round(bookedDays.size / daysInMonth * 100) + '%';
+  document.getElementById('kpi-taux').textContent = Math.round(bookedDaysSet.size/daysInMonth*100)+'%';
+
+  // RevPAN annuel
+  const totalNuits = anneeResas.reduce((s,r) => {
+    if(!r.arrivee||!r.depart) return s;
+    return s + Math.round((new Date(r.depart)-new Date(r.arrivee))/86400000);
+  }, 0);
+  const daysInYear = anneeEnCours%4===0?366:365;
+  const totalDispoNuits = biens.length * daysInYear;
+  const revPan = totalDispoNuits > 0 ? Math.round(caAnnee/totalDispoNuits*100)/100 : 0;
+  const revPanEl = document.getElementById('kpi-revpan');
+  if (revPanEl) revPanEl.textContent = revPan.toFixed(2).replace('.',',')+'€';
+
+  // Dépôts en attente
+  const depotsAttente = resas.filter(r => r.depot_garantie && r.depot_statut==='en_attente' && r.statut==='terminee').length;
+  const depotCard = document.getElementById('kpi-depot-card');
+  const depotEl = document.getElementById('kpi-depot');
+  if (depotCard && depotEl) {
+    depotCard.style.display = depotsAttente > 0 ? '' : 'none';
+    depotEl.textContent = depotsAttente;
+  }
+
+  // Graphique barres 6 mois
+  renderDashChart();
+
+  // Alertes intelligentes
+  renderDashAlertes();
+}
+
+function renderDashChart() {
+  const chart = document.getElementById('dash-chart');
+  const labels = document.getElementById('dash-chart-labels');
+  if (!chart) return;
+  const now = new Date();
+  const mois6 = [];
+  for (let i=5; i>=0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const m = d.getMonth(), y = d.getFullYear();
+    const ca = resas.filter(r => r.statut!=='annulee' && r.arrivee && new Date(r.arrivee).getMonth()===m && new Date(r.arrivee).getFullYear()===y)
+      .reduce((s,r) => s+(r.montant||0), 0);
+    mois6.push({ label: d.toLocaleDateString('fr-FR',{month:'short'}), ca, isCurrent: i===0 });
+  }
+  const maxCA = Math.max(...mois6.map(m=>m.ca), 1);
+  chart.innerHTML = mois6.map(m => `
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+      <div style="font-size:8px;color:var(--text-muted)">${m.ca>0?fmt(m.ca).replace(',00 EUR','').replace(' ','')+'€':''}</div>
+      <div style="width:100%;background:${m.isCurrent?'var(--primary)':'var(--primary-light)'};border-radius:3px 3px 0 0;height:${Math.max(m.ca/maxCA*50,m.ca>0?4:0)}px;transition:height .3s"></div>
+    </div>`).join('');
+  if (labels) labels.innerHTML = mois6.map(m => `<div style="flex:1;text-align:center;font-size:9px;color:var(--text-muted)">${m.label}</div>`).join('');
+}
+
+function renderDashAlertes() {
+  const alertes = [];
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+
+  // Séjour en cours
+  const enCours = resas.filter(r => r.arrivee<=todayStr && r.depart>todayStr && r.statut!=='annulee');
+  enCours.forEach(r => {
+    const bien = biens.find(b=>b.id===r.bien_id);
+    alertes.push({ type:'info', icon:'🏠', msg:`<strong>${r.guest_nom||'Voyageur'}</strong> est actuellement dans ${bien?.nom||'votre bien'} — Départ le ${formatDate(r.depart)}`, action:`openModalResa('${r.id}')` });
+  });
+
+  // Arrivées dans 24h
+  const demain = new Date(today); demain.setDate(demain.getDate()+1);
+  const demainStr = demain.toISOString().slice(0,10);
+  const arriveesDemain = resas.filter(r => r.arrivee===demainStr && r.statut!=='annulee');
+  arriveesDemain.forEach(r => {
+    const bien = biens.find(b=>b.id===r.bien_id);
+    alertes.push({ type:'warning', icon:'📅', msg:`Arrivée demain : <strong>${r.guest_nom||'Voyageur'}</strong> dans ${bien?.nom||'votre bien'}. Pensez à préparer l'accès !`, action:`openModalResa('${r.id}')` });
+  });
+
+  // Arrivées dans 7j — envoyer le lien séjour
+  const j7 = new Date(today); j7.setDate(j7.getDate()+7);
+  const j7Str = j7.toISOString().slice(0,10);
+  resas.filter(r => r.arrivee>demainStr && r.arrivee<=j7Str && r.statut!=='annulee' && r.token_voyageur).forEach(r => {
+    const bien = biens.find(b=>b.id===r.bien_id);
+    alertes.push({ type:'primary', icon:'🔗', msg:`J-${Math.round((new Date(r.arrivee)-today)/86400000)} : <strong>${r.guest_nom||'Voyageur'}</strong> arrive le ${formatDate(r.arrivee)} dans ${bien?.nom||'votre bien'}. Envoyez le lien séjour !`, action:`copyLienVoyageur('${r.token_voyageur}')` });
+  });
+
+  // Dépôts à restituer
+  const depotsARestituer = resas.filter(r => r.depot_garantie && r.depot_statut==='en_attente' && r.statut==='terminee');
+  depotsARestituer.forEach(r => {
+    alertes.push({ type:'danger', icon:'🔒', msg:`Dépôt de garantie à restituer : <strong>${r.guest_nom||'Voyageur'}</strong> — ${fmt(r.depot_garantie)}`, action:`openModalResa('${r.id}')` });
+  });
+
+  // Biens sans déclaration mairie
+  biens.filter(b=>!b.num_declaration).forEach(b => {
+    alertes.push({ type:'warning', icon:'⚠️', msg:`<strong>${b.nom}</strong> n'a pas de numéro de déclaration mairie. Obligatoire pour la location touristique !`, action:`showPage('demarches')` });
+  });
+
+  const colors = { info:'#e0f2fe:#0369a1', warning:'#fef3c7:#92400e', primary:'var(--primary-light):var(--primary)', danger:'#fee2e2:#991b1b' };
+  const el = document.getElementById('dash-alertes');
+  if (!el) return;
+
+  // Rappels statiques si pas d'alertes
+  const rappels = document.getElementById('dash-rappels');
+  if (rappels) {
+    rappels.innerHTML = alertes.length ? '' : `
+      <div class="check-item" onclick="showPage('demarches')"><div class="check-box">!</div><div><div class="check-title">Déclaration mairie obligatoire</div><div class="check-desc">Tout meublé de tourisme doit être déclaré en mairie (Cerfa 14004).</div></div></div>
+      <div class="check-item" onclick="showPage('fiscalite')"><div class="check-box">€</div><div><div class="check-title">Vérifier votre régime fiscal 2026</div><div class="check-desc">Loi Le Meur : seuils micro-BIC modifiés. Simulez votre situation.</div></div></div>`;
+  }
+
+  el.innerHTML = alertes.map(a => {
+    const [bg, color] = colors[a.type].split(':');
+    return `<div onclick="${a.action}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:${bg};border-radius:10px;margin-bottom:8px;cursor:pointer;border:1px solid ${color}20">
+      <span style="font-size:18px;flex-shrink:0">${a.icon}</span>
+      <span style="font-size:12.5px;color:${color};line-height:1.4">${a.msg}</span>
+      <span style="margin-left:auto;font-size:12px;color:${color};opacity:.7">→</span>
+    </div>`;
+  }).join('');
 }
 
 // SELECTS
