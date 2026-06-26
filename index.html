@@ -322,6 +322,9 @@
     </div>
     <div class="nav-group">
       <div class="nav-label">Compte</div>
+      <a class="nav-item" onclick="showPage('export-comptable')">
+        <span class="icon">📊</span> Export comptable
+      </a>
       <a class="nav-item" onclick="showPage('messages-bailleur')">
         <span class="icon">💬</span> Messages <span id="nav-msg-badge" style="display:none;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px">!</span>
       </a>
@@ -1253,6 +1256,80 @@
       </div>
     </div>
 
+    <!-- EXPORT COMPTABLE -->
+    <div class="page" id="page-export-comptable">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header"><span class="card-title">📊 Export comptable</span></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Année fiscale</label>
+              <select class="form-control" id="export-annee" onchange="genererExportComptable()">
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Bien</label>
+              <select class="form-control" id="export-bien" onchange="genererExportComptable()">
+                <option value="">Tous les biens</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+            <button class="btn btn-primary" onclick="exportPDF()">📄 Export PDF</button>
+            <button class="btn btn-outline" onclick="exportCSV()">📋 Export CSV</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPIs annuels -->
+      <div class="kpi-grid" id="export-kpis" style="margin-bottom:20px"></div>
+
+      <!-- Tableau mois par mois -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header"><span class="card-title">Récapitulatif mensuel</span></div>
+        <div class="card-body" style="padding:0;overflow-x:auto">
+          <table id="export-table" style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="background:var(--bg)">
+                <th style="padding:10px 14px;text-align:left;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">Mois</th>
+                <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">Réservations</th>
+                <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">Nuits</th>
+                <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">CA location</th>
+                <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">Taxe séjour</th>
+                <th style="padding:10px 14px;text-align:right;color:var(--primary);font-weight:700;border-bottom:1px solid var(--border)">Total TTC</th>
+              </tr>
+            </thead>
+            <tbody id="export-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Détail réservations -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Détail des réservations</span></div>
+        <div class="card-body" style="padding:0;overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+            <thead>
+              <tr style="background:var(--bg)">
+                <th style="padding:10px 14px;text-align:left;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">Voyageur</th>
+                <th style="padding:10px 14px;text-align:left;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">Bien</th>
+                <th style="padding:10px 14px;text-align:left;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">Arrivée</th>
+                <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">Nuits</th>
+                <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">CA</th>
+                <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">Taxe</th>
+                <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">Statut</th>
+                <th style="padding:10px 14px;text-align:right;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border)">Dépôt</th>
+              </tr>
+            </thead>
+            <tbody id="export-detail-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- MESSAGES BAILLEUR -->
     <div class="page" id="page-messages-bailleur">
       <div class="grid-2" id="msg-bailleur-layout">
@@ -1428,6 +1505,34 @@
         <label class="form-label">Notes</label>
         <textarea class="form-control" id="resa-notes" rows="2" placeholder="Informations complémentaires..."></textarea>
       </div>
+      <div style="border-top:1px solid var(--border);margin:12px 0 8px;padding-top:4px">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:12px">💶 Finances</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Taxe de séjour (€/nuit/pers.)</label>
+            <input class="form-control" type="number" step="0.01" id="resa-taxe-taux" placeholder="0.50" oninput="calcTaxeResa()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Taxe totale calculée</label>
+            <input class="form-control" id="resa-taxe-total" placeholder="—" readonly style="background:var(--bg);color:var(--primary);font-weight:600">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Dépôt de garantie (€)</label>
+            <input class="form-control" type="number" id="resa-depot" placeholder="200">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Statut dépôt</label>
+            <select class="form-control" id="resa-depot-statut">
+              <option value="en_attente">En attente</option>
+              <option value="encaisse">Encaissé</option>
+              <option value="restitue">Restitué</option>
+              <option value="retenu">Retenu (litige)</option>
+            </select>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-resa')">Annuler</button>
@@ -1578,7 +1683,7 @@ function showPage(name) {
     dashboard: 'Tableau de bord', calendrier: 'Calendrier', reservations: 'Réservations',
     biens: 'Mes biens', voyageurs: 'Voyageurs', contrat: 'Contrat PDF',
     annonce: 'Annonce IA', fiscalite: 'Fiscalité', demarches: 'Démarches admin',
-    'messages-bailleur': 'Messages', parametres: 'Paramètres'
+    'messages-bailleur': 'Messages', 'export-comptable': 'Export comptable', parametres: 'Paramètres'
   };
   document.getElementById('page-title').textContent = titles[name] || name;
   const actions = {
@@ -1602,6 +1707,7 @@ function showPage(name) {
   if (name === 'fiscalite') { prefillFiscalFromResas(); }
   if (name === 'messages-bailleur') { loadMessagesBailleur(); }
   if (name === 'parametres') { setTimeout(initSignatureCanvas, 100); }
+  if (name === 'export-comptable') { genererExportComptable(); }
 }
 
 function toggleSidebar() {
@@ -1857,6 +1963,9 @@ async function saveResa() {
     plateforme: document.getElementById('resa-plateforme').value,
     statut: document.getElementById('resa-statut').value,
     notes: document.getElementById('resa-notes').value,
+    taxe_taux: parseFloat(document.getElementById('resa-taxe-taux').value) || null,
+    depot_garantie: parseFloat(document.getElementById('resa-depot').value) || null,
+    depot_statut: document.getElementById('resa-depot-statut').value,
     token_voyageur: token
   };
   if (id) {
@@ -1906,6 +2015,10 @@ function openModalResa(id) {
       document.getElementById('resa-statut').value = r.statut || 'confirmee';
       document.getElementById('resa-notes').value = r.notes || '';
       document.getElementById('resa-bien-id').value = r.bien_id || '';
+      document.getElementById('resa-taxe-taux').value = r.taxe_taux || '';
+      document.getElementById('resa-depot').value = r.depot_garantie || '';
+      document.getElementById('resa-depot-statut').value = r.depot_statut || 'en_attente';
+      calcTaxeResa();
     }
   }
   document.getElementById('modal-resa').classList.add('open');
@@ -1999,6 +2112,8 @@ function updateSelects() {
   document.getElementById('annonce-bien').innerHTML = '<option value="">Sélectionner un bien</option>' + biens.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
   const fiscBien = document.getElementById('fisc-bien');
   if (fiscBien) fiscBien.innerHTML = '<option value="">Tous les biens</option>' + biens.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
+  const exportBien = document.getElementById('export-bien');
+  if (exportBien) exportBien.innerHTML = '<option value="">Tous les biens</option>' + biens.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
   const demSel = document.getElementById('dem-bien-select');
   if (demSel) demSel.innerHTML = '<option value="">-- Sélectionner un bien --</option>' + biens.map(b => `<option value="${b.id}">${b.nom}</option>`).join('');
 }
@@ -2371,6 +2486,17 @@ function genererCerfa() {
 }
 
 // ANNONCE IA
+function calcTaxeResa() {
+  const taux = parseFloat(document.getElementById('resa-taxe-taux').value) || 0;
+  const arrivee = document.getElementById('resa-arrivee').value;
+  const depart = document.getElementById('resa-depart').value;
+  const nbVoyageurs = parseInt(document.getElementById('resa-nb-voyageurs').value) || 1;
+  if (!taux || !arrivee || !depart) { document.getElementById('resa-taxe-total').value = '—'; return; }
+  const nuits = Math.round((new Date(depart) - new Date(arrivee)) / 86400000);
+  const total = Math.round(taux * nuits * nbVoyageurs * 100) / 100;
+  document.getElementById('resa-taxe-total').value = total.toFixed(2).replace('.', ',') + ' €';
+}
+
 function calcMontantAuto() {
   const bienId = document.getElementById('resa-bien-id').value;
   const arrivee = document.getElementById('resa-arrivee').value;
@@ -3016,6 +3142,223 @@ function sigBlock(doc, m, y, p, showLocataire = false) {
     doc.text('Lu et approuve le ' + new Date().toLocaleDateString('fr-FR'), m, y);
   }
   return y;
+}
+
+// EXPORT COMPTABLE
+let exportData = { resas: [], mois: [], totaux: {} };
+
+function genererExportComptable() {
+  const annee = parseInt(document.getElementById('export-annee')?.value) || new Date().getFullYear();
+  const bienId = document.getElementById('export-bien')?.value;
+  const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+  // Filtrer réservations
+  const filtered = resas.filter(r => {
+    if (r.statut === 'annulee') return false;
+    if (!r.arrivee) return false;
+    if (new Date(r.arrivee).getFullYear() !== annee) return false;
+    if (bienId && r.bien_id !== bienId) return false;
+    return true;
+  });
+
+  // Calculer par réservation
+  const resasCalc = filtered.map(r => {
+    const nuits = r.arrivee && r.depart ? Math.round((new Date(r.depart) - new Date(r.arrivee)) / 86400000) : 0;
+    const taxe = r.taxe_taux ? Math.round(r.taxe_taux * nuits * (r.nb_voyageurs||1) * 100) / 100 : 0;
+    const totalTTC = (r.montant||0) + taxe;
+    const bien = biens.find(b => b.id === r.bien_id);
+    return { ...r, nuits, taxe, totalTTC, bien };
+  });
+
+  // Regrouper par mois
+  const byMois = {};
+  for (let i = 0; i < 12; i++) byMois[i] = { nb: 0, nuits: 0, ca: 0, taxe: 0, total: 0 };
+  resasCalc.forEach(r => {
+    const m = new Date(r.arrivee).getMonth();
+    byMois[m].nb++;
+    byMois[m].nuits += r.nuits;
+    byMois[m].ca += r.montant || 0;
+    byMois[m].taxe += r.taxe;
+    byMois[m].total += r.totalTTC;
+  });
+
+  // Totaux
+  const totCA = resasCalc.reduce((s, r) => s + (r.montant||0), 0);
+  const totTaxe = resasCalc.reduce((s, r) => s + r.taxe, 0);
+  const totTTC = resasCalc.reduce((s, r) => s + r.totalTTC, 0);
+  const totNuits = resasCalc.reduce((s, r) => s + r.nuits, 0);
+  const tauxOcc = totNuits > 0 ? Math.round(totNuits / (annee % 4 === 0 ? 366 : 365) * 100) : 0;
+  const revPan = totNuits > 0 ? Math.round(totCA / totNuits * 100) / 100 : 0;
+
+  exportData = { resas: resasCalc, mois: byMois, totaux: { totCA, totTaxe, totTTC, totNuits, tauxOcc, revPan, nb: resasCalc.length } };
+
+  // KPIs
+  const kpisEl = document.getElementById('export-kpis');
+  if (kpisEl) kpisEl.innerHTML = [
+    { icon: '📅', label: 'Réservations', val: resasCalc.length, sub: annee },
+    { icon: '🌙', label: 'Nuits louées', val: totNuits, sub: `Taux occ. ${tauxOcc}%` },
+    { icon: '💶', label: 'CA location', val: fmt(totCA), sub: 'Hors taxe séjour' },
+    { icon: '🏛️', label: 'Taxe de séjour', val: fmt(totTaxe), sub: 'Collectée' },
+    { icon: '💰', label: 'Total TTC', val: fmt(totTTC), sub: `RevPAN : ${fmt(revPan)}/nuit` },
+  ].map(k => `
+    <div class="kpi-card">
+      <div class="kpi-icon">${k.icon}</div>
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value" style="font-size:20px">${k.val}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+
+  // Tableau mensuel
+  const tbody = document.getElementById('export-tbody');
+  if (tbody) {
+    let html = '';
+    let hasMois = false;
+    for (let i = 0; i < 12; i++) {
+      const m = byMois[i];
+      if (!m.nb) continue;
+      hasMois = true;
+      html += `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:10px 14px;font-weight:600">${moisNoms[i]}</td>
+        <td style="padding:10px 14px;text-align:right">${m.nb}</td>
+        <td style="padding:10px 14px;text-align:right">${m.nuits}</td>
+        <td style="padding:10px 14px;text-align:right">${fmt(m.ca)}</td>
+        <td style="padding:10px 14px;text-align:right;color:var(--text-muted)">${m.taxe > 0 ? fmt(m.taxe) : '—'}</td>
+        <td style="padding:10px 14px;text-align:right;font-weight:700;color:var(--primary)">${fmt(m.total)}</td>
+      </tr>`;
+    }
+    if (!hasMois) html = '<tr><td colspan="6" style="padding:20px;text-align:center;color:var(--text-muted)">Aucune réservation en ' + annee + '</td></tr>';
+    html += `<tr style="background:var(--primary-light);font-weight:700">
+      <td style="padding:10px 14px;color:var(--primary)">TOTAL ${annee}</td>
+      <td style="padding:10px 14px;text-align:right;color:var(--primary)">${resasCalc.length}</td>
+      <td style="padding:10px 14px;text-align:right;color:var(--primary)">${totNuits}</td>
+      <td style="padding:10px 14px;text-align:right;color:var(--primary)">${fmt(totCA)}</td>
+      <td style="padding:10px 14px;text-align:right;color:var(--primary)">${totTaxe > 0 ? fmt(totTaxe) : '—'}</td>
+      <td style="padding:10px 14px;text-align:right;color:var(--primary);font-size:15px">${fmt(totTTC)}</td>
+    </tr>`;
+    tbody.innerHTML = html;
+  }
+
+  // Tableau détail
+  const detailTbody = document.getElementById('export-detail-tbody');
+  if (detailTbody) {
+    const badges = { confirmee: 'badge-success', terminee: 'badge-info', en_attente: 'badge-warning' };
+    const depotBadges = { en_attente: 'badge-warning', encaisse: 'badge-info', restitue: 'badge-success', retenu: 'badge-danger' };
+    detailTbody.innerHTML = resasCalc.length ? resasCalc.map(r => `
+      <tr style="border-bottom:1px solid var(--border)" onclick="openModalResa('${r.id}')" style="cursor:pointer">
+        <td style="padding:9px 14px"><div style="font-weight:600">${r.guest_nom||'—'}</div><div style="font-size:11px;color:var(--text-muted)">${r.guest_email||''}</div></td>
+        <td style="padding:9px 14px;color:var(--text-muted)">${r.bien?.nom||'—'}</td>
+        <td style="padding:9px 14px">${formatDate(r.arrivee)}</td>
+        <td style="padding:9px 14px;text-align:right">${r.nuits}</td>
+        <td style="padding:9px 14px;text-align:right;font-weight:600">${fmt(r.montant||0)}</td>
+        <td style="padding:9px 14px;text-align:right;color:var(--text-muted)">${r.taxe > 0 ? fmt(r.taxe) : '—'}</td>
+        <td style="padding:9px 14px;text-align:right"><span class="badge ${badges[r.statut]||'badge-info'}">${r.statut}</span></td>
+        <td style="padding:9px 14px;text-align:right"><span class="badge ${depotBadges[r.depot_statut||'en_attente']||'badge-info'}" style="font-size:10px">${r.depot_garantie ? fmt(r.depot_garantie) + ' ' : ''}${r.depot_statut||'—'}</span></td>
+      </tr>`).join('') :
+      '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--text-muted)">Aucune réservation</td></tr>';
+  }
+}
+
+function exportCSV() {
+  const annee = document.getElementById('export-annee')?.value || new Date().getFullYear();
+  const { resas: r } = exportData;
+  if (!r.length) { alert('Aucune donnée à exporter.'); return; }
+  const header = 'Voyageur;Email;Bien;Arrivee;Depart;Nuits;Voyageurs;CA location;Taxe sejour;Total TTC;Statut;Depot garantie;Statut depot;Plateforme\n';
+  const rows = r.map(x => [
+    x.guest_nom||'', x.guest_email||'', x.bien?.nom||'', x.arrivee||'', x.depart||'',
+    x.nuits, x.nb_voyageurs||1, (x.montant||0).toFixed(2), x.taxe.toFixed(2), x.totalTTC.toFixed(2),
+    x.statut||'', x.depot_garantie||'', x.depot_statut||'', x.plateforme||''
+  ].join(';')).join('\n');
+  const blob = new Blob(['\ufeff' + header + rows], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `bailo-airbnb-export-${annee}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportPDF() {
+  const annee = document.getElementById('export-annee')?.value || new Date().getFullYear();
+  const bienId = document.getElementById('export-bien')?.value;
+  const bienNom = bienId ? (biens.find(b => b.id === bienId)?.nom || 'Tous les biens') : 'Tous les biens';
+  const p = getParams();
+  const { totCA, totTaxe, totTTC, totNuits, tauxOcc, revPan, nb } = exportData.totaux;
+  const { resas: resasCalc, mois } = exportData;
+  const moisNoms = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre'];
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const m = 20; let y = 36;
+
+  const t = (txt, s=9, style='normal', color=[30,30,46]) => {
+    doc.setFontSize(s).setFont('helvetica',style).setTextColor(...color);
+    const lines = doc.splitTextToSize(String(txt||''),170);
+    doc.text(lines,m,y); y += lines.length*(s*0.35+1.5);
+  };
+  const gap = (n=4) => { y += n; };
+  const hr = () => { doc.setDrawColor(210,210,210);doc.setLineWidth(0.2);doc.line(m,y,190,y);y+=4; };
+  const row = (cols, bold=false, bg=null) => {
+    if (bg) { doc.setFillColor(...bg); doc.rect(m,y-4,170,8,'F'); }
+    const widths = [30,20,15,30,25,30];
+    const aligns = ['left','right','right','right','right','right'];
+    cols.forEach((col, i) => {
+      const x = m + widths.slice(0,i).reduce((a,b)=>a+b,0);
+      doc.setFontSize(8).setFont('helvetica',bold?'bold':'normal').setTextColor(bold?59:80,bold?91:80,bold?219:80);
+      if (aligns[i]==='right') doc.text(String(col),x+widths[i],y,{align:'right'});
+      else doc.text(String(col),x,y);
+    });
+    y += 7;
+  };
+
+  // Header
+  doc.setFillColor(59,91,219);doc.rect(0,0,210,30,'F');
+  doc.setFontSize(13).setFont('helvetica','bold').setTextColor(255,255,255);
+  doc.text('RAPPORT COMPTABLE ' + annee, m, 13);
+  doc.setFontSize(8).setFont('helvetica','normal');
+  doc.text('Location meublée de tourisme  |  ' + bienNom, m, 21);
+  if(p.nom) doc.text(p.nom, 190, 13, {align:'right'});
+  doc.text('Edite le ' + new Date().toLocaleDateString('fr-FR'), 190, 21, {align:'right'});
+
+  // KPIs en grille
+  gap(2);
+  const kpis = [
+    ['Réservations', nb],['Nuits louées', totNuits],['Taux occupation', tauxOcc+'%'],
+    ['CA location', fmt(totCA)],['Taxe séjour', fmt(totTaxe)],['Total TTC', fmt(totTTC)]
+  ];
+  const kpiW = 55, kpiH = 18;
+  kpis.forEach((k, i) => {
+    const col = i % 3, row_ = Math.floor(i / 3);
+    const kx = m + col * (kpiW + 2.5), ky = y + row_ * (kpiH + 2);
+    doc.setFillColor(col===5?232:245, col===5?237:246, col===5?255:250);
+    doc.rect(kx, ky-4, kpiW, kpiH, 'F');
+    doc.setFontSize(7).setFont('helvetica','normal').setTextColor(100,100,120);
+    doc.text(k[0], kx+3, ky+1);
+    doc.setFontSize(11).setFont('helvetica','bold').setTextColor(col===5?59:30,col===5?91:30,col===5?219:46);
+    doc.text(String(k[1]), kx+3, ky+9);
+  });
+  y += 42; hr();
+
+  // Tableau mensuel
+  t('RECAPITULATIF MENSUEL', 8, 'bold', [59,91,219]); gap(3);
+  row(['Mois','Resas','Nuits','CA Location','Taxe sejour','Total TTC'], true, [232,237,255]);
+  for (let i = 0; i < 12; i++) {
+    const mo = mois[i];
+    if (!mo?.nb) continue;
+    row([moisNoms[i], mo.nb, mo.nuits, fmt(mo.ca), mo.taxe>0?fmt(mo.taxe):'—', fmt(mo.total)]);
+  }
+  row(['TOTAL '+annee, nb, totNuits, fmt(totCA), totTaxe>0?fmt(totTaxe):'—', fmt(totTTC)], true, [209,250,229]);
+  gap(4); hr();
+
+  // Mention BIC
+  if (y > 230) { doc.addPage(); y = 20; }
+  t('INFORMATION FISCALE — DECLARATION BIC ' + annee, 8, 'bold', [59,91,219]); gap(2);
+  t('CA brut à déclarer (location) : ' + fmt(totCA) + '  |  Taxe de séjour collectée (non imposable) : ' + fmt(totTaxe));
+  gap(2);
+  t('Régime micro-BIC non classé : base imposable estimée = ' + fmt(totCA * 0.70) + ' (abattement 30%)');
+  t('Régime micro-BIC classé : base imposable estimée = ' + fmt(totCA * 0.50) + ' (abattement 50%)');
+  gap(2);
+  doc.setFontSize(7).setTextColor(150,150,165);
+  doc.text('Ce document est un récapitulatif comptable. Consultez un expert-comptable pour votre déclaration fiscale.', m, y);
+
+  doc.save('rapport-comptable-' + annee + '.pdf');
 }
 
 // PARAMS
