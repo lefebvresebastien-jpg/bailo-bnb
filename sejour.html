@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Votre séjour — Bailo</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --primary: #3b5bdb; --primary-light: #e8edff; --bg: #f5f6fa;
+  --white: #fff; --text: #1a1a2e; --text-muted: #6b7280; --border: #e5e7eb;
+  --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* HEADER */
+.header { background: var(--primary); color: white; padding: 0; }
+.header-photos { height: 220px; position: relative; overflow: hidden; background: var(--primary); }
+.header-photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.header-photos-grid { display: grid; grid-template-columns: 2fr 1fr; height: 100%; gap: 2px; }
+.header-photos-right { display: grid; grid-rows: 1fr 1fr; gap: 2px; }
+.header-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.6) 0%, transparent 60%); }
+.header-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 16px 20px; color: white; }
+.header-info h1 { font-size: 20px; font-weight: 700; }
+.header-info p { font-size: 13px; opacity: .85; margin-top: 3px; }
+.header-no-photo { height: 220px; background: linear-gradient(135deg, #3b5bdb, #2f4ac0); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; color: white; }
+
+/* TABS */
+.tabs { background: white; border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; position: sticky; top: 0; z-index: 50; }
+.tab { padding: 14px 16px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; white-space: nowrap; border-bottom: 3px solid transparent; transition: all .15s; flex-shrink: 0; }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.tab:hover { color: var(--text); }
+
+/* CONTENT */
+.content { max-width: 680px; margin: 0 auto; padding: 16px; }
+.section { display: none; }
+.section.active { display: block; }
+
+/* CARDS */
+.card { background: white; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 14px; overflow: hidden; }
+.card-header { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.card-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card-body { padding: 16px; }
+
+/* INFO ROWS */
+.info-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.info-row:last-child { border-bottom: none; }
+.info-icon { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
+.info-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.info-val { font-size: 13.5px; color: var(--text); margin-top: 2px; line-height: 1.5; }
+
+/* CODE CLÉ */
+.code-box { background: var(--primary-light); border: 2px solid var(--primary); border-radius: 12px; padding: 20px; text-align: center; margin: 8px 0; }
+.code-val { font-size: 36px; font-weight: 800; color: var(--primary); letter-spacing: 8px; font-family: monospace; }
+.code-label { font-size: 12px; color: var(--primary); margin-top: 6px; font-weight: 500; }
+
+/* COUNTDOWN */
+.countdown-box { background: linear-gradient(135deg, var(--primary), #2f4ac0); border-radius: 12px; padding: 20px; color: white; text-align: center; margin-bottom: 14px; }
+.countdown-label { font-size: 12px; opacity: .8; margin-bottom: 8px; }
+.countdown-val { font-size: 32px; font-weight: 800; }
+.countdown-sub { font-size: 12px; opacity: .8; margin-top: 6px; }
+
+/* DATES */
+.dates-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.date-box { background: var(--bg); border-radius: 10px; padding: 14px; text-align: center; }
+.date-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
+.date-val { font-size: 16px; font-weight: 700; color: var(--text); }
+.date-time { font-size: 12px; color: var(--primary); margin-top: 3px; font-weight: 600; }
+
+/* DOCS */
+.doc-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.doc-item:last-child { border-bottom: none; }
+.doc-icon { width: 40px; height: 40px; background: var(--primary-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.doc-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.doc-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.doc-arrow { margin-left: auto; color: var(--text-muted); }
+
+/* MESSAGERIE */
+.msg-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; max-height: 400px; overflow-y: auto; }
+.msg-bubble { max-width: 80%; padding: 10px 14px; border-radius: 16px; font-size: 13.5px; line-height: 1.5; }
+.msg-bailleur { background: var(--primary); color: white; border-radius: 16px 16px 4px 16px; align-self: flex-start; }
+.msg-voyageur { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 16px 16px 16px 4px; align-self: flex-end; }
+.msg-time { font-size: 10px; opacity: .7; margin-top: 4px; }
+.msg-input-bar { display: flex; gap: 8px; }
+.msg-input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 24px; font-size: 13.5px; outline: none; }
+.msg-input:focus { border-color: var(--primary); }
+.msg-send { background: var(--primary); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+/* INCIDENT */
+.incident-form { display: flex; flex-direction: column; gap: 12px; }
+.badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-danger { background: #fee2e2; color: #991b1b; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-success { background: #d1fae5; color: #065f46; }
+.badge-info { background: var(--primary-light); color: var(--primary); }
+
+/* BONS PLANS */
+.plan-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.plan-item:last-child { border-bottom: none; }
+.plan-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.plan-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.6; }
+
+/* GALERIE */
+.galerie-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.galerie-thumb { aspect-ratio: 1; border-radius: 8px; overflow: hidden; cursor: pointer; }
+.galerie-thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s; }
+.galerie-thumb:hover img { transform: scale(1.05); }
+
+/* PHOTO VIEWER */
+.photo-viewer { position: fixed; inset: 0; background: rgba(0,0,0,.95); z-index: 200; display: none; align-items: center; justify-content: center; }
+.photo-viewer.open { display: flex; }
+.photo-viewer img { max-width: 95vw; max-height: 90vh; object-fit: contain; border-radius: 8px; }
+.photo-viewer-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,.2); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+/* MAPS */
+.maps-btn { display: flex; align-items: center; gap: 8px; background: var(--primary); color: white; padding: 12px 16px; border-radius: 10px; text-decoration: none; font-size: 13.5px; font-weight: 600; margin-top: 10px; justify-content: center; }
+
+/* LOADING / ERROR */
+.loading { display: flex; align-items: center; justify-content: center; min-height: 60vh; flex-direction: column; gap: 16px; color: var(--text-muted); }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* FORM */
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 12px; font-weight: 600; color: var(--text); }
+.form-control { padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13.5px; width: 100%; }
+.form-control:focus { outline: none; border-color: var(--primary); }
+.btn { padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 13.5px; font-weight: 600; transition: all .15s; }
+.btn-primary { background: var(--primary); color: white; width: 100%; }
+.btn-danger { background: var(--danger); color: white; }
+
+/* MOBILE */
+@media (max-width: 480px) {
+  .header-photos { height: 180px; }
+  .countdown-val { font-size: 24px; }
+  .code-val { font-size: 28px; letter-spacing: 5px; }
+}
+</style>
+</head>
+<body>
+
+<div id="loading-screen" class="loading">
+  <div class="spinner"></div>
+  <div>Chargement de votre séjour...</div>
+</div>
+
+<div id="app" style="display:none">
+
+  <!-- HEADER PHOTOS -->
+  <div class="header">
+    <div id="header-photos"></div>
+    <div class="header-overlay" id="header-overlay" style="display:none"></div>
+    <div class="header-info" id="header-info" style="display:none">
+      <h1 id="bien-nom-header"></h1>
+      <p id="bien-addr-header"></p>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('accueil')">🏠 Accueil</div>
+    <div class="tab" onclick="showTab('acces')">🗝️ Accès</div>
+    <div class="tab" onclick="showTab('documents')">📄 Documents</div>
+    <div class="tab" onclick="showTab('photos')">📷 Photos</div>
+    <div class="tab" onclick="showTab('bons-plans')">🍽️ Bons plans</div>
+    <div class="tab" onclick="showTab('messages')">💬 Messages <span id="msg-badge" style="display:none;background:var(--danger);color:white;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:4px">!</span></div>
+    <div class="tab" onclick="showTab('incident')">🚨 Incident</div>
+  </div>
+
+  <!-- SECTIONS -->
+  <div class="content">
+
+    <!-- ACCUEIL -->
+    <div class="section active" id="section-accueil">
+      <div id="countdown-container"></div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">📅 Votre séjour</div></div>
+        <div class="card-body">
+          <div class="dates-grid">
+            <div class="date-box">
+              <div class="date-label">Arrivée</div>
+              <div class="date-val" id="resa-arrivee-display"></div>
+              <div class="date-time">à partir de 15h00</div>
+            </div>
+            <div class="date-box">
+              <div class="date-label">Départ</div>
+              <div class="date-val" id="resa-depart-display"></div>
+              <div class="date-time">avant 11h00</div>
+            </div>
+          </div>
+          <div style="margin-top:14px">
+            <div class="info-row">
+              <span class="info-icon">👤</span>
+              <div><div class="info-label">Voyageur</div><div class="info-val" id="guest-nom-display"></div></div>
+            </div>
+            <div class="info-row">
+              <span class="info-icon">👥</span>
+              <div><div class="info-label">Nombre de personnes</div><div class="info-val" id="nb-voyageurs-display"></div></div>
+            </div>
+            <div class="info-row">
+              <span class="info-icon">🏠</span>
+              <div><div class="info-label">Bien loué</div><div class="info-val" id="bien-nom-display"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="card-description" style="display:none">
+        <div class="card-header"><div class="card-title">ℹ️ Le logement</div></div>
+        <div class="card-body">
+          <div id="bien-description-display" style="font-size:13.5px;line-height:1.7;color:var(--text-muted)"></div>
+          <div id="bien-specs" style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">📞 Contact bailleur</div></div>
+        <div class="card-body">
+          <div class="info-row">
+            <span class="info-icon">👤</span>
+            <div><div class="info-label">Votre hôte</div><div class="info-val" id="bailleur-nom-display"></div></div>
+          </div>
+          <div class="info-row" id="bailleur-tel-row" style="display:none">
+            <span class="info-icon">📞</span>
+            <div><div class="info-label">Téléphone</div><a class="info-val" id="bailleur-tel-display" style="color:var(--primary)"></a></div>
+          </div>
+          <div style="margin-top:12px">
+            <button class="btn btn-primary" onclick="showTab('messages')">💬 Envoyer un message</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACCES -->
+    <div class="section" id="section-acces">
+      <div class="card" id="card-code-cle" style="display:none">
+        <div class="card-header"><div class="card-title">🗝️ Code boîte à clés</div></div>
+        <div class="card-body">
+          <div class="code-box">
+            <div class="code-val" id="code-cle-display"></div>
+            <div class="code-label" id="loc-cle-display"></div>
+          </div>
+          <div style="background:#fef3c7;border-radius:8px;padding:10px 12px;margin-top:8px;font-size:12px;color:#92400e">
+            🔒 Ce code est confidentiel — ne le partagez pas avec des tiers.
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="card-acces-instructions" style="display:none">
+        <div class="card-header"><div class="card-title">📍 Instructions d'accès</div></div>
+        <div class="card-body">
+          <div id="acces-instructions-display" style="font-size:13.5px;line-height:1.8;color:var(--text);white-space:pre-wrap"></div>
+          <div id="maps-btn-container" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">🕐 Horaires</div></div>
+        <div class="card-body">
+          <div class="info-row">
+            <span class="info-icon">🟢</span>
+            <div><div class="info-label">Check-in</div><div class="info-val">À partir de <strong>15h00</strong> le jour d'arrivée</div></div>
+          </div>
+          <div class="info-row">
+            <span class="info-icon">🔴</span>
+            <div><div class="info-label">Check-out</div><div class="info-val">Avant <strong>11h00</strong> le jour de départ</div></div>
+          </div>
+          <div class="info-row">
+            <span class="info-icon">💡</span>
+            <div><div class="info-label">Arrivée tardive</div><div class="info-val">La boîte à clés permet une arrivée autonome à toute heure</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="card-infos-pratiques" style="display:none">
+        <div class="card-header"><div class="card-title">ℹ️ Infos pratiques</div></div>
+        <div class="card-body">
+          <div id="infos-pratiques-display" style="font-size:13.5px;line-height:1.8;color:var(--text);white-space:pre-wrap"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOCUMENTS -->
+    <div class="section" id="section-documents">
+      <div class="card">
+        <div class="card-header"><div class="card-title">📄 Vos documents</div></div>
+        <div class="card-body">
+          <div id="docs-list">
+            <div class="doc-item" onclick="genererContratVoyageur()">
+              <div class="doc-icon">📋</div>
+              <div>
+                <div class="doc-name">Contrat de location</div>
+                <div class="doc-desc">Contrat meublé de tourisme — Code du tourisme</div>
+              </div>
+              <div class="doc-arrow">↓</div>
+            </div>
+            <div class="doc-item" id="doc-etat-lieux" style="display:none" onclick="voirEtatLieux()">
+              <div class="doc-icon">🏠</div>
+              <div>
+                <div class="doc-name">État des lieux</div>
+                <div class="doc-desc">À compléter à l'arrivée</div>
+              </div>
+              <div class="doc-arrow">→</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ÉTAT DES LIEUX INTÉGRÉ -->
+      <div class="card" id="card-edl">
+        <div class="card-header"><div class="card-title">📋 État des lieux d'entrée</div></div>
+        <div class="card-body">
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+            Veuillez indiquer l'état général du logement à votre arrivée. Ces informations seront transmises au bailleur.
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="form-group">
+              <label class="form-label">État général du logement</label>
+              <select class="form-control" id="edl-etat">
+                <option value="tres_bon">Très bon état</option>
+                <option value="bon">Bon état</option>
+                <option value="correct">État correct</option>
+                <option value="degradé">Quelques problèmes à signaler</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Observations / remarques</label>
+              <textarea class="form-control" id="edl-remarques" rows="4" placeholder="Ex: Légère rayure sur le plan de travail côté fenêtre, lampe du salon ne fonctionne pas..."></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Relevé des compteurs (si applicable)</label>
+              <input class="form-control" id="edl-compteurs" placeholder="Ex: Eau froide : 1234 m³">
+            </div>
+          </div>
+          <button class="btn btn-primary" style="margin-top:16px" onclick="soumettreEDL()">✅ Soumettre l'état des lieux</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHOTOS -->
+    <div class="section" id="section-photos">
+      <div class="card">
+        <div class="card-header"><div class="card-title">📷 Photos du logement</div></div>
+        <div class="card-body">
+          <div class="galerie-grid" id="galerie-grid">
+            <div style="text-align:center;color:var(--text-muted);padding:32px;grid-column:span 3;font-size:13px">Aucune photo disponible</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BONS PLANS -->
+    <div class="section" id="section-bons-plans">
+      <div class="card" id="card-resto" style="display:none">
+        <div class="card-header"><div class="card-title">🍽️ Restaurants recommandés</div></div>
+        <div class="card-body" id="bp-resto-content"></div>
+      </div>
+      <div class="card" id="card-activites" style="display:none">
+        <div class="card-header"><div class="card-title">🎯 Activités & balades</div></div>
+        <div class="card-body" id="bp-activites-content"></div>
+      </div>
+      <div id="bp-empty" style="text-align:center;padding:48px 20px;color:var(--text-muted)">
+        <div style="font-size:48px;margin-bottom:12px">🗺️</div>
+        <div style="font-size:14px">Votre hôte n'a pas encore ajouté de bons plans.<br>N'hésitez pas à lui envoyer un message !</div>
+      </div>
+    </div>
+
+    <!-- MESSAGES -->
+    <div class="section" id="section-messages">
+      <div class="card">
+        <div class="card-header"><div class="card-title">💬 Messagerie avec votre hôte</div></div>
+        <div class="card-body">
+          <div class="msg-list" id="msg-list">
+            <div style="text-align:center;color:var(--text-muted);font-size:13px;padding:20px">
+              Démarrez la conversation avec votre hôte
+            </div>
+          </div>
+          <div class="msg-input-bar">
+            <input class="msg-input" id="msg-input" placeholder="Votre message..." onkeypress="if(event.key==='Enter')sendMessage()">
+            <button class="msg-send" onclick="sendMessage()">→</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INCIDENT -->
+    <div class="section" id="section-incident">
+      <div class="card">
+        <div class="card-header"><div class="card-title">🚨 Signaler un incident</div></div>
+        <div class="card-body">
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+            En cas de problème dans le logement, signalez-le ici. Votre hôte sera notifié immédiatement.
+          </div>
+          <div class="incident-form">
+            <div class="form-group">
+              <label class="form-label">Type d'incident</label>
+              <select class="form-control" id="incident-type">
+                <option value="equipement">Équipement défectueux</option>
+                <option value="plomberie">Problème de plomberie</option>
+                <option value="electricite">Problème électrique</option>
+                <option value="serrure">Problème de serrure / accès</option>
+                <option value="proprete">Problème de propreté</option>
+                <option value="voisinage">Nuisance / voisinage</option>
+                <option value="securite">Sécurité</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Urgence</label>
+              <select class="form-control" id="incident-urgence">
+                <option value="faible">Faible — peut attendre</option>
+                <option value="normale">Normale — à traiter rapidement</option>
+                <option value="urgente">Urgente — intervention immédiate requise</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description détaillée</label>
+              <textarea class="form-control" id="incident-desc" rows="4" placeholder="Décrivez le problème en détail..."></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="soumettreIncident()">🚨 Signaler l'incident</button>
+          </div>
+
+          <!-- Incidents existants -->
+          <div id="incidents-list" style="margin-top:24px"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<!-- PHOTO VIEWER -->
+<div class="photo-viewer" id="photo-viewer" onclick="closePhotoViewer()">
+  <button class="photo-viewer-close" onclick="closePhotoViewer()">×</button>
+  <img id="photo-viewer-img" src="" alt="">
+</div>
+
+<script>
+const SUPABASE_URL = 'https://hvkguyddmhqbvarujlyr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_BZHU49hkN70MgEypJZ7K5A_AwlIQF7W';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let resa = null, bien = null, params = null, messages = [];
+
+// Récupérer le token depuis l'URL
+function getToken() {
+  const p = new URLSearchParams(window.location.search);
+  return p.get('token') || p.get('sejour');
+}
+
+async function init() {
+  const token = getToken();
+  if (!token) { showError('Lien invalide — Aucun token de séjour trouvé.'); return; }
+
+  // Charger la réservation via le token
+  const { data: resaData, error } = await db
+    .from('bnb_bookings')
+    .select('*')
+    .eq('token_voyageur', token)
+    .single();
+
+  if (error || !resaData) { showError('Séjour introuvable — Le lien a peut-être expiré.'); return; }
+  resa = resaData;
+
+  // Charger le bien
+  if (resa.bien_id) {
+    const { data: bienData } = await db.from('bnb_properties').select('*').eq('id', resa.bien_id).single();
+    bien = bienData;
+  }
+
+  // Charger les params bailleur
+  const { data: settingsData } = await db.from('bnb_settings').select('*').eq('user_id', resa.user_id).single();
+  params = settingsData;
+
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  renderHeader();
+  renderAccueil();
+  renderAcces();
+  renderPhotos();
+  renderBonsPlans();
+  loadMessages();
+  loadIncidents();
+}
+
+function renderHeader() {
+  const photos = bien?.photos || [];
+  const headerPhotos = document.getElementById('header-photos');
+  const headerOverlay = document.getElementById('header-overlay');
+  const headerInfo = document.getElementById('header-info');
+
+  if (photos.length > 0) {
+    if (photos.length === 1) {
+      headerPhotos.style.height = '220px';
+      headerPhotos.innerHTML = `<img src="${photos[0]}" style="width:100%;height:220px;object-fit:cover">`;
+    } else {
+      headerPhotos.innerHTML = `
+        <div class="header-photos-grid" style="height:220px">
+          <img src="${photos[0]}" style="width:100%;height:100%;object-fit:cover">
+          <div style="display:grid;grid-template-rows:1fr 1fr;gap:2px">
+            ${photos[1] ? `<img src="${photos[1]}" style="width:100%;height:100%;object-fit:cover">` : '<div style="background:#2f4ac0"></div>'}
+            ${photos[2] ? `<img src="${photos[2]}" style="width:100%;height:100%;object-fit:cover">` : '<div style="background:#2f4ac0"></div>'}
+          </div>
+        </div>`;
+    }
+    headerOverlay.style.display = 'block';
+  } else {
+    headerPhotos.innerHTML = `<div class="header-no-photo" style="height:180px"><div style="font-size:48px">🏠</div><div style="font-size:14px;opacity:.8">${bien?.nom || 'Votre logement'}</div></div>`;
+  }
+
+  headerInfo.style.display = 'block';
+  document.getElementById('bien-nom-header').textContent = bien?.nom || 'Votre séjour';
+  document.getElementById('bien-addr-header').textContent = bien?.adresse || '';
+}
+
+function renderAccueil() {
+  // Countdown
+  const now = new Date();
+  const arrivee = resa.arrivee ? new Date(resa.arrivee) : null;
+  const depart = resa.depart ? new Date(resa.depart) : null;
+  const cc = document.getElementById('countdown-container');
+
+  if (arrivee && depart) {
+    const diffArr = Math.ceil((arrivee - now) / 86400000);
+    const diffDep = Math.ceil((depart - now) / 86400000);
+    if (diffArr > 0) {
+      cc.innerHTML = `<div class="countdown-box"><div class="countdown-label">Votre arrivée dans</div><div class="countdown-val">${diffArr} jour${diffArr > 1 ? 's' : ''}</div><div class="countdown-sub">${formatDate(resa.arrivee)}</div></div>`;
+    } else if (diffDep > 0) {
+      cc.innerHTML = `<div class="countdown-box" style="background:linear-gradient(135deg,#10b981,#059669)"><div class="countdown-label">🏠 Vous êtes ici ! Départ dans</div><div class="countdown-val">${diffDep} jour${diffDep > 1 ? 's' : ''}</div><div class="countdown-sub">${formatDate(resa.depart)}</div></div>`;
+    } else {
+      cc.innerHTML = `<div class="countdown-box" style="background:linear-gradient(135deg,#6b7280,#4b5563)"><div class="countdown-val">Séjour terminé</div><div class="countdown-sub">Merci pour votre visite !</div></div>`;
+    }
+  }
+
+  document.getElementById('resa-arrivee-display').textContent = formatDate(resa.arrivee);
+  document.getElementById('resa-depart-display').textContent = formatDate(resa.depart);
+  document.getElementById('guest-nom-display').textContent = resa.guest_nom || '—';
+  document.getElementById('nb-voyageurs-display').textContent = (resa.nb_voyageurs || 1) + ' personne(s)';
+  document.getElementById('bien-nom-display').textContent = bien?.nom || '—';
+
+  if (bien?.description) {
+    document.getElementById('card-description').style.display = 'block';
+    document.getElementById('bien-description-display').textContent = bien.description;
+    const specs = [];
+    if (bien.capacite) specs.push(`👥 ${bien.capacite} pers. max`);
+    if (bien.chambres) specs.push(`🛏 ${bien.chambres} chambre(s)`);
+    if (bien.prix_nuit) specs.push(`💶 ${bien.prix_nuit}€/nuit`);
+    document.getElementById('bien-specs').innerHTML = specs.map(s => `<span style="font-size:12px;color:var(--text-muted)">${s}</span>`).join('');
+  }
+
+  document.getElementById('bailleur-nom-display').textContent = params?.nom || 'Votre hôte';
+  if (params?.tel) {
+    document.getElementById('bailleur-tel-row').style.display = 'flex';
+    const telEl = document.getElementById('bailleur-tel-display');
+    telEl.textContent = params.tel;
+    telEl.href = `tel:${params.tel}`;
+  }
+}
+
+function renderAcces() {
+  if (bien?.code_cle) {
+    document.getElementById('card-code-cle').style.display = 'block';
+    document.getElementById('code-cle-display').textContent = bien.code_cle;
+    document.getElementById('loc-cle-display').textContent = bien.loc_cle || 'Boîte à clés';
+  }
+  if (bien?.acces) {
+    document.getElementById('card-acces-instructions').style.display = 'block';
+    document.getElementById('acces-instructions-display').textContent = bien.acces;
+  }
+  if (bien?.maps_url) {
+    document.getElementById('maps-btn-container').innerHTML = `<a href="${bien.maps_url}" target="_blank" class="maps-btn">🗺️ Ouvrir dans Google Maps</a>`;
+  }
+  if (bien?.infos_pratiques) {
+    document.getElementById('card-infos-pratiques').style.display = 'block';
+    document.getElementById('infos-pratiques-display').textContent = bien.infos_pratiques;
+  }
+}
+
+function renderPhotos() {
+  const photos = bien?.photos || [];
+  const grid = document.getElementById('galerie-grid');
+  if (!photos.length) return;
+  grid.innerHTML = photos.map((src, i) => `
+    <div class="galerie-thumb" onclick="openPhoto('${src}')">
+      <img src="${src}" alt="Photo ${i+1}" loading="lazy">
+    </div>`).join('');
+}
+
+function renderBonsPlans() {
+  const hasResto = bien?.bons_plans_resto;
+  const hasActiv = bien?.bons_plans_activites;
+  if (hasResto || hasActiv) {
+    document.getElementById('bp-empty').style.display = 'none';
+    if (hasResto) {
+      document.getElementById('card-resto').style.display = 'block';
+      document.getElementById('bp-resto-content').innerHTML = `<div style="font-size:13.5px;line-height:1.8;color:var(--text);white-space:pre-wrap">${bien.bons_plans_resto}</div>`;
+    }
+    if (hasActiv) {
+      document.getElementById('card-activites').style.display = 'block';
+      document.getElementById('bp-activites-content').innerHTML = `<div style="font-size:13.5px;line-height:1.8;color:var(--text);white-space:pre-wrap">${bien.bons_plans_activites}</div>`;
+    }
+  }
+}
+
+// MESSAGERIE
+async function loadMessages() {
+  const { data } = await db.from('bnb_messages')
+    .select('*').eq('resa_id', resa.id).order('created_at', { ascending: true });
+  messages = data || [];
+  renderMessages();
+}
+
+function renderMessages() {
+  const list = document.getElementById('msg-list');
+  if (!messages.length) {
+    list.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:20px">Démarrez la conversation avec votre hôte</div>';
+    return;
+  }
+  list.innerHTML = messages.map(m => `
+    <div style="display:flex;flex-direction:column;align-items:${m.role === 'bailleur' ? 'flex-start' : 'flex-end'}">
+      <div class="msg-bubble msg-${m.role}">
+        ${m.contenu}
+        <div class="msg-time">${formatDateTime(m.created_at)}</div>
+      </div>
+    </div>`).join('');
+  list.scrollTop = list.scrollHeight;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('msg-input');
+  const contenu = input.value.trim();
+  if (!contenu) return;
+  input.value = '';
+  await db.from('bnb_messages').insert({
+    resa_id: resa.id, user_id: resa.user_id,
+    role: 'voyageur', contenu,
+    expediteur: resa.guest_nom || 'Voyageur'
+  });
+  await loadMessages();
+}
+
+// INCIDENTS
+async function loadIncidents() {
+  const { data } = await db.from('bnb_incidents').select('*').eq('resa_id', resa.id).order('created_at', { ascending: false });
+  const list = document.getElementById('incidents-list');
+  if (!data || !data.length) { list.innerHTML = ''; return; }
+  const urgLabels = { faible: { label: 'Faible', cls: 'badge-info' }, normale: { label: 'Normale', cls: 'badge-warning' }, urgente: { label: 'Urgente', cls: 'badge-danger' } };
+  list.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:10px">Incidents signalés</div>` + data.map(inc => `
+    <div style="background:var(--bg);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:600">${inc.type_incident || 'Incident'}</span>
+        <span class="badge ${urgLabels[inc.urgence]?.cls || 'badge-info'}">${urgLabels[inc.urgence]?.label || inc.urgence}</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--text-muted)">${inc.description}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">${formatDateTime(inc.created_at)}</div>
+    </div>`).join('');
+}
+
+async function soumettreIncident() {
+  const type = document.getElementById('incident-type').value;
+  const urgence = document.getElementById('incident-urgence').value;
+  const desc = document.getElementById('incident-desc').value.trim();
+  if (!desc) { alert('Merci de décrire l\'incident.'); return; }
+  await db.from('bnb_incidents').insert({
+    resa_id: resa.id, user_id: resa.user_id,
+    type_incident: type, urgence, description: desc,
+    bien_id: resa.bien_id, guest_nom: resa.guest_nom
+  });
+  // Envoyer aussi un message automatique
+  await db.from('bnb_messages').insert({
+    resa_id: resa.id, user_id: resa.user_id,
+    role: 'voyageur', expediteur: resa.guest_nom || 'Voyageur',
+    contenu: `🚨 Incident signalé — ${type} (${urgence}) : ${desc}`
+  });
+  document.getElementById('incident-desc').value = '';
+  await loadIncidents();
+  await loadMessages();
+  alert('Incident signalé ! Votre hôte en a été informé.');
+}
+
+async function soumettreEDL() {
+  const etat = document.getElementById('edl-etat').value;
+  const remarques = document.getElementById('edl-remarques').value;
+  const compteurs = document.getElementById('edl-compteurs').value;
+  await db.from('bnb_messages').insert({
+    resa_id: resa.id, user_id: resa.user_id,
+    role: 'voyageur', expediteur: resa.guest_nom || 'Voyageur',
+    contenu: `📋 État des lieux d'entrée\nÉtat général : ${etat}\n${remarques ? 'Observations : ' + remarques : ''}\n${compteurs ? 'Compteurs : ' + compteurs : ''}`
+  });
+  alert('État des lieux envoyé à votre hôte. Merci !');
+  showTab('messages');
+}
+
+function genererContratVoyageur() {
+  if (!resa || !bien) { alert('Données manquantes pour générer le contrat.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y = 20; const m = 20;
+  const t = (txt, s=10, style='normal', color=[30,30,46]) => {
+    doc.setFontSize(s).setFont('helvetica', style).setTextColor(...color);
+    const lines = doc.splitTextToSize(txt, 170);
+    doc.text(lines, m, y); y += lines.length * (s * 0.4 + 2);
+  };
+  const gap = (n=6) => { y += n; };
+  const hr = () => { doc.setDrawColor(200,200,200); doc.line(m, y, 190, y); gap(4); };
+
+  t('CONTRAT DE LOCATION MEUBLÉE DE TOURISME', 13, 'bold', [59,91,219]);
+  t('Code du tourisme art. L324-1-1', 8, 'normal', [120,120,140]);
+  gap(6); hr();
+  t('BIEN LOUÉ', 11, 'bold'); gap(3);
+  t(`${bien.nom} — ${bien.adresse || ''}`);
+  t(`Type : ${bien.type || '—'} | Capacité : ${bien.capacite || '—'} pers.`);
+  if (bien.num_declaration) t(`N° déclaration : ${bien.num_declaration}`);
+  gap(6); hr();
+  t('LOCATAIRE', 11, 'bold'); gap(3);
+  t(`Nom : ${resa.guest_nom || '—'}`);
+  t(`Email : ${resa.guest_email || '—'}`);
+  t(`Téléphone : ${resa.guest_tel || '—'}`);
+  gap(6); hr();
+  t('PÉRIODE', 11, 'bold'); gap(3);
+  t(`Arrivée : ${formatDate(resa.arrivee)} à partir de 15h00`);
+  t(`Départ : ${formatDate(resa.depart)} avant 11h00`);
+  t(`Voyageurs : ${resa.nb_voyageurs || 1} personne(s)`);
+  gap(6); hr();
+  t('PRIX', 11, 'bold'); gap(3);
+  t(`Montant total : ${resa.montant ? resa.montant + ' €' : '—'} TTC`);
+  gap(6); hr();
+  t('DISPOSITIONS LÉGALES', 11, 'bold'); gap(3);
+  t('Ce contrat est soumis au Code du tourisme (art. L324-1-1) et au Code civil (art. 1709). Il ne constitue pas un bail d\'habitation soumis à la loi du 6 juillet 1989.');
+  gap(16);
+  t('Signature bailleur : _____________________    Signature locataire : _____________________');
+  gap(6);
+  t(`Fait le ${new Date().toLocaleDateString('fr-FR')}`, 9);
+  doc.save(`contrat-${resa.guest_nom?.replace(/\s/g,'-') || 'location'}.pdf`);
+}
+
+// NAVIGATION TABS
+function showTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.getAttribute('onclick').includes("'" + name + "'")) t.classList.add('active');
+  });
+  if (name === 'messages') loadMessages();
+}
+
+// PHOTO VIEWER
+function openPhoto(src) {
+  document.getElementById('photo-viewer-img').src = src;
+  document.getElementById('photo-viewer').classList.add('open');
+}
+function closePhotoViewer() {
+  document.getElementById('photo-viewer').classList.remove('open');
+}
+
+// UTILS
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+function formatDateTime(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+function showError(msg) {
+  document.getElementById('loading-screen').innerHTML = `<div style="text-align:center;padding:40px;max-width:400px"><div style="font-size:48px;margin-bottom:16px">😕</div><div style="font-size:16px;font-weight:700;margin-bottom:8px">Oups</div><div style="font-size:13px;color:var(--text-muted)">${msg}</div></div>`;
+}
+
+init();
+</script>
+</body>
+</html>
