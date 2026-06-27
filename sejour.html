@@ -721,7 +721,7 @@ function renderAccueil() {
   }
 
   // Mettre à jour badges documents selon statut réel
-  const docs = resa?.docs_recus ? JSON.parse(resa.docs_recus) : {};
+  const docs = (resa?.docs_recus && typeof resa.docs_recus === 'object') ? resa.docs_recus : {};
   const setbadge = (id, done) => {
     const el = document.getElementById(id);
     if (!el) return;
