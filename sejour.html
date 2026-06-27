@@ -636,9 +636,25 @@ async function init() {
     }
   }
 
-  // Charger les params bailleur
-  const { data: settingsData } = await db.from('bnb_settings').select('*').eq('user_id', resa.user_id).single();
-  params = settingsData;
+  // Charger les params bailleur via fetch direct (contourne RLS)
+  try {
+    const settingsRes = await fetch(
+      `https://hvkguyddmhqbvarujlyr.supabase.co/rest/v1/bnb_settings?user_id=eq.${resa.user_id}&select=*`,
+      {
+        headers: {
+          'apikey': 'sb_publishable_BZHU49hkN70MgEypJZ7K5A_AwlIQF7W',
+          'Authorization': 'Bearer sb_publishable_BZHU49hkN70MgEypJZ7K5A_AwlIQF7W',
+          'Accept': 'application/json'
+        }
+      }
+    );
+    if (settingsRes.ok) {
+      const settingsArr = await settingsRes.json();
+      params = settingsArr?.[0] || null;
+    }
+  } catch(e) {
+    params = null;
+  }
 
   document.getElementById('loading-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
