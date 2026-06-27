@@ -3662,6 +3662,15 @@ function saveParams() {
     regime: document.getElementById('param-regime').value
   };
   localStorage.setItem('bnb_params', JSON.stringify(data));
+  // Sauvegarder aussi dans Supabase bnb_settings pour l'espace voyageur
+  db.from('bnb_settings').upsert({
+    user_id: USER_ID,
+    nom: data.nom,
+    email: data.email,
+    adresse: data.adresse,
+    tel: data.tel,
+    regime: data.regime
+  }, { onConflict: 'user_id' });
   document.getElementById('contrat-bailleur').value = data.nom;
   document.getElementById('contrat-addr-bailleur').value = data.adresse;
   alert('Paramètres enregistrés');
