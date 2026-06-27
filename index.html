@@ -2024,8 +2024,12 @@ async function notify(type, data) {
 async function saveResa() {
   const id = document.getElementById('resa-id').value;
   const token = id ? (resas.find(r => r.id === id)?.token_voyageur || crypto.randomUUID()) : crypto.randomUUID();
+  const p = getParams();
   const data = {
     user_id: USER_ID,
+    bailleur_nom: p.nom || null,
+    bailleur_tel: p.tel || null,
+    bailleur_email: p.email || null,
     bien_id: document.getElementById('resa-bien-id').value || null,
     guest_nom: document.getElementById('resa-guest-nom').value,
     guest_email: document.getElementById('resa-guest-email').value,
