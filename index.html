@@ -3401,9 +3401,6 @@ function addSignatureToPDF(doc, x, y, width, height) {
 }
 
 function sigBlock(doc, m, y, p, showLocataire = false) {
-  // Forcer saut de page si besoin (besoin de ~60px pour la signature)
-  if (y > 230) { doc.addPage(); y = 20; }
-
   // Séparateur
   doc.setDrawColor(200,200,200); doc.setLineWidth(0.3);
   doc.line(m, y, 190, y); y += 10;
