@@ -636,7 +636,7 @@ async function init() {
     }
   }
 
-  // Charger les params bailleur via fetch direct (contourne RLS)
+  // Charger les params bailleur - depuis bnb_settings ou fallback sur resa
   try {
     const settingsRes = await fetch(
       `https://hvkguyddmhqbvarujlyr.supabase.co/rest/v1/bnb_settings?user_id=eq.${resa.user_id}&select=*`,
@@ -654,6 +654,14 @@ async function init() {
     }
   } catch(e) {
     params = null;
+  }
+  // Fallback : utiliser les infos bailleur stockées dans la réservation
+  if (!params?.nom && resa.bailleur_nom) {
+    params = {
+      nom: resa.bailleur_nom,
+      tel: resa.bailleur_tel,
+      email: resa.bailleur_email
+    };
   }
 
   document.getElementById('loading-screen').style.display = 'none';
