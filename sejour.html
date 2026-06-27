@@ -222,14 +222,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <div class="card-body">
           <div class="info-row">
             <span class="info-icon">👤</span>
-            <div><div class="info-label">Votre hôte</div><div class="info-val" id="bailleur-nom-display"></div></div>
+            <div><div class="info-label">Votre hôte</div><div class="info-val" id="bailleur-nom-display">Votre hôte</div></div>
           </div>
           <div class="info-row" id="bailleur-tel-row" style="display:none">
             <span class="info-icon">📞</span>
             <div><div class="info-label">Téléphone</div><a class="info-val" id="bailleur-tel-display" style="color:var(--primary)"></a></div>
           </div>
+          <div class="info-row" id="bailleur-email-row" style="display:none">
+            <span class="info-icon">✉️</span>
+            <div><div class="info-label">Email</div><a class="info-val" id="bailleur-email-display" style="color:var(--primary)"></a></div>
+          </div>
           <div style="margin-top:12px">
-            <button class="btn btn-primary" onclick="showTab('messages')">💬 Envoyer un message</button>
+            <button class="btn btn-primary" style="width:100%" onclick="showTab('messages')">💬 Envoyer un message</button>
           </div>
         </div>
       </div>
@@ -736,12 +740,25 @@ function renderAccueil() {
     document.getElementById('bien-specs').innerHTML = specs.map(s => `<span style="font-size:12px;color:var(--text-muted)">${s}</span>`).join('');
   }
 
-  document.getElementById('bailleur-nom-display').textContent = params?.nom || 'Votre hôte';
-  if (params?.tel) {
+  // Infos bailleur — depuis params (bnb_settings) ou fallback resa.bailleur_*
+  const bNom = params?.nom || resa?.bailleur_nom || 'Votre hôte';
+  const bTel = params?.tel || resa?.bailleur_tel || null;
+  const bEmail = params?.email || resa?.bailleur_email || null;
+
+  document.getElementById('bailleur-nom-display').textContent = bNom;
+
+  if (bTel) {
     document.getElementById('bailleur-tel-row').style.display = 'flex';
     const telEl = document.getElementById('bailleur-tel-display');
-    telEl.textContent = params.tel;
-    telEl.href = `tel:${params.tel}`;
+    telEl.textContent = bTel;
+    telEl.href = `tel:${bTel}`;
+  }
+
+  if (bEmail) {
+    document.getElementById('bailleur-email-row').style.display = 'flex';
+    const emailEl = document.getElementById('bailleur-email-display');
+    emailEl.textContent = bEmail;
+    emailEl.href = `mailto:${bEmail}`;
   }
 
   // Mettre à jour badges documents selon statut réel
