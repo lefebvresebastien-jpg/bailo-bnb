@@ -312,9 +312,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             </div>
             <div class="doc-item" style="cursor:default">
               <div class="doc-icon">📋</div>
-              <div>
+              <div style="flex:1">
                 <div class="doc-name">Contrat signé</div>
-                <div class="doc-desc">Téléchargez, signez et renvoyez le contrat via la messagerie</div>
+                <div class="doc-desc">Téléchargez le contrat, signez-le et renvoyez-le ici</div>
+                <div style="margin-top:8px">
+                  <label style="display:inline-flex;align-items:center;gap:6px;background:var(--primary);color:white;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12.5px;font-weight:600">
+                    📎 Envoyer le contrat signé
+                    <input type="file" id="upload-contrat" accept="image/*,application/pdf" style="display:none" onchange="envoyerContratSigne(this)">
+                  </label>
+                  <span id="upload-contrat-status" style="font-size:11px;color:var(--text-muted);margin-left:8px"></span>
+                </div>
               </div>
               <div id="badge-contrat" class="badge badge-warning">À signer</div>
             </div>
@@ -457,6 +464,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
             </div>
           </div>
           <div class="msg-input-bar">
+            <label style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;background:var(--bg);border:1px solid var(--border);border-radius:50%;cursor:pointer;flex-shrink:0;font-size:16px" title="Joindre un fichier">
+              📎
+              <input type="file" id="msg-file-input" accept="image/*,application/pdf" style="display:none" onchange="envoyerFichierMessage(this)">
+            </label>
             <input class="msg-input" id="msg-input" placeholder="Votre message..." onkeypress="if(event.key==='Enter')sendMessage()">
             <button class="msg-send" onclick="sendMessage()">→</button>
           </div>
@@ -616,6 +627,13 @@ async function init() {
   if (resa.bien_id) {
     const { data: bienData } = await db.from('bnb_properties').select('*').eq('id', resa.bien_id).single();
     bien = bienData;
+    // Sécuriser photos JSONB → array
+    if (bien && bien.photos) {
+      if (typeof bien.photos === 'string') {
+        try { bien.photos = JSON.parse(bien.photos); } catch(e) { bien.photos = []; }
+      }
+      if (!Array.isArray(bien.photos)) bien.photos = [];
+    }
   }
 
   // Charger les params bailleur
@@ -839,6 +857,53 @@ function afficherDocRecu(msgId) {
   showTab('messages');
 }
 
+async function envoyerContratSigne(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('upload-contrat-status');
+  statusEl.textContent = 'Envoi en cours...';
+  try {
+    const filePath = `contrats-signes/${resa.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+    const arrayBuffer = await file.arrayBuffer();
+    const { error } = await db.storage.from('bnb-docs').upload(filePath, arrayBuffer, { contentType: file.type, upsert: true });
+    if (error) throw error;
+    const { data: urlData } = db.storage.from('bnb-docs').getPublicUrl(filePath);
+    await db.from('bnb_messages').insert({
+      resa_id: resa.id, user_id: resa.user_id,
+      role: 'voyageur', expediteur: resa.guest_nom || 'Voyageur',
+      contenu: `📋 Contrat signé envoyé : ${file.name}`,
+      lu: false, doc_url: urlData?.publicUrl, doc_type: 'contrat_signe', doc_nom: file.name
+    });
+    statusEl.textContent = '✅ Envoyé !'; statusEl.style.color = '#10b981';
+    document.getElementById('badge-contrat').className = 'badge badge-success';
+    document.getElementById('badge-contrat').textContent = '✅ Reçu';
+  } catch(e) {
+    statusEl.textContent = '❌ Erreur'; statusEl.style.color = '#ef4444';
+  }
+}
+
+async function envoyerFichierMessage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    const filePath = `messages/${resa.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+    const arrayBuffer = await file.arrayBuffer();
+    const { error } = await db.storage.from('bnb-docs').upload(filePath, arrayBuffer, { contentType: file.type, upsert: true });
+    if (error) throw error;
+    const { data: urlData } = db.storage.from('bnb-docs').getPublicUrl(filePath);
+    const isImage = file.type.startsWith('image/');
+    await db.from('bnb_messages').insert({
+      resa_id: resa.id, user_id: resa.user_id,
+      role: 'voyageur', expediteur: resa.guest_nom || 'Voyageur',
+      contenu: (isImage ? '🖼️ ' : '📎 ') + file.name,
+      lu: false, doc_url: urlData?.publicUrl,
+      doc_type: isImage ? 'image' : 'fichier', doc_nom: file.name
+    });
+    input.value = '';
+    await loadMessages();
+  } catch(e) { alert('Erreur envoi fichier'); }
+}
+
 // UPLOAD PIECE D'IDENTITE
 async function envoyerPieceIdentite(input) {
   const file = input.files[0];
@@ -911,21 +976,50 @@ function renderMessages() {
     // Détecter un document PDF — soit via doc_url, soit via lien Storage dans le contenu
     const storageUrl = m.doc_url || (m.contenu && m.contenu.match(/https:\/\/[^\s]+\.pdf/)?.[0]);
     const isPiece = m.doc_type === 'piece_identite';
-    const isDoc = !isPiece && storageUrl && (m.doc_type || m.contenu?.includes('QUITTANCE') || m.contenu?.includes('BON DE') || m.contenu?.includes('FACTURE'));
+    const isContratSigne = m.doc_type === 'contrat_signe';
+    const isImage = m.doc_type === 'image';
+    const isFichier = m.doc_type === 'fichier';
+    const isDoc = !isPiece && !isContratSigne && !isImage && !isFichier && storageUrl && (m.doc_type || m.contenu?.includes('QUITTANCE') || m.contenu?.includes('BON DE') || m.contenu?.includes('FACTURE'));
+    const align = m.role === 'bailleur' ? 'flex-start' : 'flex-end';
 
     if (isPiece && m.doc_url) {
-      const isImage = m.doc_url.match(/\.(jpg|jpeg|png|gif|webp|heic)/i);
-      return `
-        <div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:4px">
-          <div style="max-width:85%;background:white;border:2px solid #3b5bdb;border-radius:12px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)">
-            <div style="font-size:12px;font-weight:700;color:#3b5bdb;margin-bottom:8px">🪪 Pièce d'identité — ${m.doc_nom||''}</div>
-            ${isImage ? `<img src="${m.doc_url}" style="max-width:100%;border-radius:8px;max-height:200px;object-fit:cover">` : ''}
-            <a href="${m.doc_url}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#3b5bdb;color:white;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:12.5px;font-weight:600;margin-top:8px">
-              ↓ Télécharger
-            </a>
-            <div style="font-size:10px;color:#9ca3af;margin-top:6px;text-align:right">${formatDateTime(m.created_at)}</div>
-          </div>
-        </div>`;
+      const imgOk = m.doc_url.match(/\.(jpg|jpeg|png|gif|webp|heic)/i);
+      return `<div style="display:flex;flex-direction:column;align-items:${align};margin-bottom:4px">
+        <div style="max-width:85%;background:white;border:2px solid #3b5bdb;border-radius:12px;padding:12px">
+          <div style="font-size:12px;font-weight:700;color:#3b5bdb;margin-bottom:8px">🪪 Pièce d'identité — ${m.doc_nom||''}</div>
+          ${imgOk ? `<img src="${m.doc_url}" style="max-width:100%;border-radius:8px;max-height:200px;object-fit:cover;display:block;margin-bottom:8px">` : ''}
+          <a href="${m.doc_url}" target="_blank" style="display:flex;align-items:center;justify-content:center;background:#3b5bdb;color:white;padding:8px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600">↓ Télécharger</a>
+          <div style="font-size:10px;color:#9ca3af;margin-top:6px;text-align:right">${formatDateTime(m.created_at)}</div>
+        </div></div>`;
+    }
+
+    if (isContratSigne && m.doc_url) {
+      return `<div style="display:flex;flex-direction:column;align-items:${align};margin-bottom:4px">
+        <div style="max-width:85%;background:white;border:2px solid #f59e0b;border-radius:12px;padding:12px">
+          <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:8px">📋 Contrat signé — ${m.doc_nom||''}</div>
+          <a href="${m.doc_url}" target="_blank" style="display:flex;align-items:center;justify-content:center;background:#f59e0b;color:white;padding:8px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600">↓ Télécharger</a>
+          <div style="font-size:10px;color:#9ca3af;margin-top:6px;text-align:right">${formatDateTime(m.created_at)}</div>
+        </div></div>`;
+    }
+
+    if (isImage && m.doc_url) {
+      return `<div style="display:flex;flex-direction:column;align-items:${align};margin-bottom:4px">
+        <div style="max-width:80%">
+          <img src="${m.doc_url}" style="max-width:100%;border-radius:12px;max-height:250px;object-fit:cover;display:block;cursor:pointer" onclick="openPhoto('${m.doc_url}')">
+          <div style="font-size:10px;color:#9ca3af;margin-top:4px;text-align:${m.role==='bailleur'?'left':'right'}">${formatDateTime(m.created_at)}</div>
+        </div></div>`;
+    }
+
+    if (isFichier && m.doc_url) {
+      return `<div style="display:flex;flex-direction:column;align-items:${align};margin-bottom:4px">
+        <div style="max-width:85%;background:white;border:1px solid var(--border);border-radius:12px;padding:12px">
+          <a href="${m.doc_url}" target="_blank" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--text)">
+            <span style="font-size:24px">📎</span>
+            <div><div style="font-size:13px;font-weight:600">${m.doc_nom||'Fichier'}</div></div>
+            <span style="margin-left:auto;color:var(--primary);font-size:12px">↓</span>
+          </a>
+          <div style="font-size:10px;color:#9ca3af;margin-top:6px">${formatDateTime(m.created_at)}</div>
+        </div></div>`;
     }
 
     if (isDoc) {
