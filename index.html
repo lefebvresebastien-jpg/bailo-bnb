@@ -2770,7 +2770,7 @@ function genererCerfa() {
 
   // Footer
   doc.setFontSize(8).setFont('helvetica', 'normal').setTextColor(150, 150, 150);
-  doc.text('Document généré par Bailo Airbnb — bailo-bnb.netlify.app', m, 285);
+  doc.text('Document généré par Bailo Airbnb — bnb.bailo.pro', m, 285);
   doc.text('Ce document est à déposer en mairie ou à envoyer par courrier recommandé avec AR.', m, 290);
 
   doc.save(`cerfa-14004-${nom.toLowerCase().replace(/\s/g, '-') || 'declaration'}.pdf`);
@@ -3689,7 +3689,7 @@ function loadParams() {
 }
 
 function copyLienVoyageur(token) {
-  const url = `https://bailo-bnb.netlify.app/sejour?token=${token}`;
+  const url = `https://bnb.bailo.pro/sejour?token=${token}`;
   navigator.clipboard.writeText(url).then(() => {
     alert('Lien copié !\n\n' + url + '\n\nEnvoyez ce lien à votre voyageur par SMS ou email.');
   });
