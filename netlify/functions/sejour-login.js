@@ -67,8 +67,11 @@ exports.handler = async (event) => {
         user_metadata: { role: 'bnb_guest', booking_id: resa.id }
       });
       if (createRes.status >= 300 || !createRes.body?.id) {
-        const listRes = await request('GET', CHANTIER_URL + '/auth/v1/admin/users?email=' + encodeURIComponent(resa.guest_email), svcHeaders);
-        const existing = listRes.body?.users?.[0] || (Array.isArray(listRes.body) ? listRes.body[0] : null);
+        // Le filtre ?email= de l'API admin n'est pas fiable (renvoie parfois
+        // un autre utilisateur) — on liste tout et on filtre nous-mêmes.
+        const listRes = await request('GET', CHANTIER_URL + '/auth/v1/admin/users?per_page=1000', svcHeaders);
+        const allUsers = listRes.body?.users || (Array.isArray(listRes.body) ? listRes.body : []);
+        const existing = allUsers.find(u => u.email?.toLowerCase() === resa.guest_email.toLowerCase());
         if (!existing?.id) {
           return { statusCode: 500, headers: cors, body: JSON.stringify({ error: 'Impossible de créer le compte voyageur' }) };
         }
