@@ -284,6 +284,36 @@
 </head>
 <body>
 
+<!-- ÉCRAN DE CONNEXION — ajouté le 12/07/2026. Avant cette date, Bnb
+     n'avait AUCUNE authentification : un identifiant utilisateur était
+     codé en dur dans le JS pour tout le monde. Utilise le même compte
+     Supabase que Chantier/Finance (même projet), cohérent avec le principe
+     d'un abonnement Bailo Pro unique donnant accès à plusieurs modules. -->
+<div id="login-overlay" style="position:fixed;inset:0;z-index:99999;background:var(--bg,#f7f5f2);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="width:100%;max-width:380px;background:var(--card,#fff);border-radius:16px;padding:32px;box-shadow:0 8px 32px rgba(0,0,0,.12)">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
+      <div style="width:38px;height:38px;border-radius:10px;background:var(--primary,#e8793a);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">B</div>
+      <div>
+        <div style="font-weight:700;font-size:1.05rem">Bailo Airbnb</div>
+        <div style="font-size:.75rem;color:var(--text-muted,#888)">Connexion</div>
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="form-label">Email</label>
+      <input class="form-control" type="email" id="login-email" placeholder="vous@exemple.fr" autocomplete="username">
+    </div>
+    <div class="form-group" style="margin-bottom:18px">
+      <label class="form-label">Mot de passe</label>
+      <input class="form-control" type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doBnbLogin()">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="doBnbLogin()">Se connecter</button>
+    <div id="login-error" style="color:#d33;font-size:.8rem;margin-top:12px;text-align:center"></div>
+    <div style="font-size:.72rem;color:var(--text-muted,#888);margin-top:16px;text-align:center">
+      Utilisez les mêmes identifiants que Bailo Chantier / Finance.
+    </div>
+  </div>
+</div>
+
 <!-- SIDEBAR -->
 <nav id="sidebar">
   <div class="sidebar-logo">
@@ -1731,7 +1761,7 @@
 const SUPABASE_URL = 'https://hvkguyddmhqbvarujlyr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_BZHU49hkN70MgEypJZ7K5A_AwlIQF7W';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const USER_ID = 'd762ecb9-c06d-49b6-b058-f0aacfa7952c';
+let USER_ID = null; // défini après connexion réelle, voir doBnbLogin()/init() plus bas
 
 // ÉTAT
 let biens = [], resas = [], currentPhotos = [];
@@ -3719,7 +3749,23 @@ function formatDateTime(d) {
 }
 
 // INIT
-async function init() {
+async function doBnbLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if (!email || !password) { errEl.textContent = 'Renseignez email et mot de passe.'; return; }
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
+  if (error || !data?.session) {
+    errEl.textContent = 'Identifiants incorrects.';
+    return;
+  }
+  USER_ID = data.session.user.id;
+  document.getElementById('login-overlay').style.display = 'none';
+  await startApp();
+}
+
+async function startApp() {
   loadParams();
   renderDem();
   await loadBiens();
@@ -3728,6 +3774,18 @@ async function init() {
   loadMessagesBailleur(); // Badge sidebar
   // Mobile
   if (window.innerWidth <= 768) document.getElementById('menu-btn').style.display = '';
+}
+
+async function init() {
+  // Vérifier si une session valide existe déjà (retour sur le site)
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    USER_ID = session.user.id;
+    document.getElementById('login-overlay').style.display = 'none';
+    await startApp();
+  } else {
+    document.getElementById('login-overlay').style.display = 'flex';
+  }
 }
 
 // PWA Service Worker
