@@ -617,6 +617,33 @@ async function init() {
   const token = getToken();
   if (!token) { showError('Lien invalide — Aucun token de séjour trouvé.'); return; }
 
+  // Établir une vraie session Supabase pour ce voyageur (nécessaire
+  // maintenant que les tables sont protégées par de vraies policies RLS).
+  // Voir sejour-login.js.
+  try {
+    const loginRes = await fetch('/.netlify/functions/sejour-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    const loginData = await loginRes.json();
+    if (!loginRes.ok || !loginData.hashed_token) {
+      showError('Séjour introuvable — Le lien a peut-être expiré.');
+      return;
+    }
+    const { error: sessionError } = await db.auth.verifyOtp({
+      token_hash: loginData.hashed_token,
+      type: 'magiclink'
+    });
+    if (sessionError) {
+      showError('Impossible d\'établir la session. Réessayez.');
+      return;
+    }
+  } catch (e) {
+    showError('Erreur de connexion. Réessayez.');
+    return;
+  }
+
   // Charger la réservation via le token
   const { data: resaData, error } = await db
     .from('bnb_bookings')
