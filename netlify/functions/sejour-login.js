@@ -7,7 +7,7 @@
 const https = require('https');
 
 const CHANTIER_URL = 'https://hvkguyddmhqbvarujlyr.supabase.co';
-const CHANTIER_SERVICE_KEY = process.env.SUPABASE_CHANTIER_SERVICE_KEY;
+const CHANTIER_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 function request(method, url, headers, body) {
   return new Promise((resolve, reject) => {
