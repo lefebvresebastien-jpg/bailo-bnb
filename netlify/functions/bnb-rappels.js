@@ -2,7 +2,7 @@ exports.handler = async () => {
   const SUPABASE_URL = 'https://hvkguyddmhqbvarujlyr.supabase.co';
   const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
   const RESEND_KEY = process.env.RESEND_API_KEY;
-  const BAILLEUR_EMAIL = process.env.BAILLEUR_EMAIL || 'contact@bailo.pro';
+  const BAILLEUR_EMAIL_FALLBACK = process.env.BAILLEUR_EMAIL || 'contact@bailo.pro';
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -15,15 +15,37 @@ exports.handler = async () => {
   });
   const resas = await res.json();
 
+  // MULTI-BAILLEUR (corrigé le 13/07/2026) : auparavant tous les rappels
+  // partaient vers UNE SEULE adresse fixe (BAILLEUR_EMAIL), peu importe le
+  // vrai propriétaire de la réservation — inutilisable dès qu'un 2e client
+  // utiliserait Bnb. On regroupe maintenant les emails par user_id (vrai
+  // propriétaire) et on retrouve son adresse via l'API admin Supabase.
+  let ownersByUserId = {};
+  const uniqueUserIds = [...new Set((Array.isArray(resas) ? resas : []).map(r => r.user_id).filter(Boolean))];
+  if (uniqueUserIds.length) {
+    const usersRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users?per_page=1000`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+    });
+    const usersData = await usersRes.json();
+    const allUsers = usersData?.users || (Array.isArray(usersData) ? usersData : []);
+    for (const uid of uniqueUserIds) {
+      const u = allUsers.find(u => u.id === uid);
+      ownersByUserId[uid] = u?.email || BAILLEUR_EMAIL_FALLBACK;
+    }
+  }
+
+  // emails est maintenant un tableau de { to, subject, html }
   const emails = [];
 
   for (const r of (Array.isArray(resas) ? resas : [])) {
     const bienNom = r.bnb_properties?.nom || '—';
     const nuits = r.arrivee && r.depart ? Math.round((new Date(r.depart)-new Date(r.arrivee))/86400000) : '—';
+    const destinataire = ownersByUserId[r.user_id] || BAILLEUR_EMAIL_FALLBACK;
 
     // J-7
     if (r.arrivee === addDays(7) && r.token_voyageur) {
       emails.push({
+        to: destinataire,
         subject: `📅 J-7 : ${r.guest_nom} arrive dans 7 jours — ${bienNom}`,
         html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
           <div style="background:#f59e0b;padding:20px;border-radius:12px 12px 0 0"><h2 style="color:white;margin:0">📅 Rappel J-7</h2></div>
@@ -40,6 +62,7 @@ exports.handler = async () => {
     // J-1
     if (r.arrivee === addDays(1)) {
       emails.push({
+        to: destinataire,
         subject: `🏠 Demain : arrivée de ${r.guest_nom} — ${bienNom}`,
         html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
           <div style="background:#10b981;padding:20px;border-radius:12px 12px 0 0"><h2 style="color:white;margin:0">🏠 Arrivée demain</h2></div>
@@ -60,6 +83,7 @@ exports.handler = async () => {
         body: JSON.stringify({ statut: 'terminee' })
       });
       emails.push({
+        to: destinataire,
         subject: `✅ Départ de ${r.guest_nom} aujourd'hui — ${bienNom}`,
         html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
           <div style="background:#3b5bdb;padding:20px;border-radius:12px 12px 0 0"><h2 style="color:white;margin:0">✅ Séjour terminé</h2></div>
@@ -77,6 +101,7 @@ exports.handler = async () => {
       const d = new Date(r.depart); d.setDate(d.getDate()+3);
       if (d.toISOString().slice(0,10) === todayStr) {
         emails.push({
+          to: destinataire,
           subject: `🔒 URGENT : Dépôt de ${r.depot_garantie}€ à restituer — ${r.guest_nom}`,
           html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto">
             <div style="background:#ef4444;padding:20px;border-radius:12px 12px 0 0"><h2 style="color:white;margin:0">🔒 Dépôt à restituer</h2></div>
@@ -90,12 +115,12 @@ exports.handler = async () => {
     }
   }
 
-  // Envoyer emails
+  // Envoyer emails — chacun à son vrai propriétaire (email.to)
   for (const email of emails) {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: 'Bailo Airbnb <noreply@bailo.pro>', to: [BAILLEUR_EMAIL], subject: email.subject, html: email.html })
+      body: JSON.stringify({ from: 'Bailo Airbnb <noreply@bailo.pro>', to: [email.to || BAILLEUR_EMAIL_FALLBACK], subject: email.subject, html: email.html })
     });
   }
 
