@@ -376,10 +376,10 @@
   <div class="sidebar-footer">
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);font-weight:600;margin-bottom:8px">Modules Bailo</div>
     <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px">
-      <a href="https://gestion.bailo.pro" target="_self" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;color:var(--text-muted);text-decoration:none;font-size:.8rem;transition:background .1s" onmouseover="this.style.background='rgba(0,0,0,.05)'" onmouseout="this.style.background='transparent'">🏠 Gestion</a>
-      <a href="https://chantier.bailo.pro" target="_self" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;color:var(--text-muted);text-decoration:none;font-size:.8rem;transition:background .1s" onmouseover="this.style.background='rgba(0,0,0,.05)'" onmouseout="this.style.background='transparent'">🏗 Chantier</a>
-      <a href="https://finance.bailo.pro" target="_self" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;color:var(--text-muted);text-decoration:none;font-size:.8rem;transition:background .1s" onmouseover="this.style.background='rgba(0,0,0,.05)'" onmouseout="this.style.background='transparent'">💰 Finance</a>
-      <a href="https://patrimoine.bailo.pro" target="_self" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;color:var(--text-muted);text-decoration:none;font-size:.8rem;transition:background .1s" onmouseover="this.style.background='rgba(0,0,0,.05)'" onmouseout="this.style.background='transparent'">📊 Patrimoine</a>
+      <a href="https://gestion.bailo.pro" target="_self" class="bn-cross-link" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;color:var(--text-muted);text-decoration:none;font-size:.8rem;transition:background .1s" onmouseover="this.style.background='rgba(0,0,0,.05)'" onmouseout="this.style.background='transparent'">🏠 Gestion</a>
+      <a href="https://chantier.bailo.pro" target="_self" class="bn-cross-link" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;color:var(--text-muted);text-decoration:none;font-size:.8rem;transition:background .1s" onmouseover="this.style.background='rgba(0,0,0,.05)'" onmouseout="this.style.background='transparent'">🏗 Chantier</a>
+      <a href="https://finance.bailo.pro" target="_self" class="bn-cross-link" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;color:var(--text-muted);text-decoration:none;font-size:.8rem;transition:background .1s" onmouseover="this.style.background='rgba(0,0,0,.05)'" onmouseout="this.style.background='transparent'">💰 Finance</a>
+      <a href="https://patrimoine.bailo.pro" target="_self" class="bn-cross-link" style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;color:var(--text-muted);text-decoration:none;font-size:.8rem;transition:background .1s" onmouseover="this.style.background='rgba(0,0,0,.05)'" onmouseout="this.style.background='transparent'">📊 Patrimoine</a>
     </div>
     <div class="version">Bailo Airbnb v1.0</div>
   </div>
@@ -1762,6 +1762,26 @@ const SUPABASE_URL = 'https://hvkguyddmhqbvarujlyr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_BZHU49hkN70MgEypJZ7K5A_AwlIQF7W';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let USER_ID = null; // défini après connexion réelle, voir doBnbLogin()/init() plus bas
+let currentUserEmail = null;
+// Ajoute ?expect=<email> aux liens vers un autre module Bailo : le module cible
+// compare avec sa propre session en cache et force une reconnexion en cas de
+// désaccord (ex. un autre compte resté connecté sur ce navigateur), sans imposer
+// de reconnexion quand tout correspond déjà.
+const BAILO_CROSS_MODULES = ['finance.bailo.pro','chantier.bailo.pro','gestion.bailo.pro','bnb.bailo.pro','patrimoine.bailo.pro']
+function withExpect(url) {
+  try {
+    if (!currentUserEmail) return url
+    const u = new URL(url)
+    if (BAILO_CROSS_MODULES.indexOf(u.hostname) === -1) return url
+    u.searchParams.set('expect', currentUserEmail)
+    return u.toString()
+  } catch(e) { return url }
+}
+function patchCrossModuleLinks() {
+  document.querySelectorAll('a.bn-cross-link').forEach(function(a) {
+    a.href = withExpect(a.getAttribute('href'))
+  })
+}
 
 // ÉTAT
 let biens = [], resas = [], currentPhotos = [];
@@ -3761,6 +3781,8 @@ async function doBnbLogin() {
     return;
   }
   USER_ID = data.session.user.id;
+  currentUserEmail = data.session.user.email;
+  patchCrossModuleLinks();
   document.getElementById('login-overlay').style.display = 'none';
   await startApp();
 }
@@ -3777,10 +3799,37 @@ async function startApp() {
 }
 
 async function init() {
+  // Arrivée depuis un lien de navigation (landing ou un autre module) : ces liens
+  // transmettent l'email attendu (?expect=) car chaque module a son propre stockage
+  // de session, isolé par sous-domaine. On compare avec la session déjà en cache ;
+  // en cas de désaccord (ex. un autre compte resté connecté sur ce navigateur) ou
+  // d'absence de correspondance, on force une vraie reconnexion. Sinon (email
+  // identique, ou aucune indication), on ne rajoute aucune friction.
+  const params = new URLSearchParams(window.location.search)
+  const expect = params.get('expect')
+  const forceLogin = params.get('forcelogin') === '1'
+  const cleanUrl = function() {
+    params.delete('expect'); params.delete('forcelogin')
+    const u = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash
+    window.history.replaceState({}, '', u)
+  }
   // Vérifier si une session valide existe déjà (retour sur le site)
   const { data: { session } } = await db.auth.getSession();
+  const mismatch = forceLogin || (expect && (!session || (session.user.email || '').toLowerCase() !== decodeURIComponent(expect).toLowerCase()))
+  if (expect || forceLogin) {
+    if (mismatch) {
+      if (session) { try { await db.auth.signOut() } catch(e) {} }
+      cleanUrl()
+      if (expect) { const el = document.getElementById('login-email'); if (el) el.value = decodeURIComponent(expect) }
+      document.getElementById('login-overlay').style.display = 'flex'
+      return
+    }
+    cleanUrl()
+  }
   if (session) {
     USER_ID = session.user.id;
+    currentUserEmail = session.user.email;
+    patchCrossModuleLinks();
     document.getElementById('login-overlay').style.display = 'none';
     await startApp();
   } else {
