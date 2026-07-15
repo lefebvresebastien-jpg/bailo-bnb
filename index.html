@@ -1302,7 +1302,7 @@
             le déposer en mairie, l'envoyer par courrier recommandé,<br>
             ou le transmettre via le site de votre commune.
           </div>
-          <button class="btn btn-primary" onclick="closeModal('modal-cerfa-ok');demStates[1]=true;localStorage.setItem('bnb_demarches',JSON.stringify(demStates));renderDem()">
+          <button class="btn btn-primary" onclick="closeModal('modal-cerfa-ok');demStates[1]=true;localStorage.setItem(uKey('bnb_demarches'),JSON.stringify(demStates));renderDem()">
             Marquer comme complété
           </button>
         </div>
@@ -1781,6 +1781,28 @@ function patchCrossModuleLinks() {
   document.querySelectorAll('a.bn-cross-link').forEach(function(a) {
     a.href = withExpect(a.getAttribute('href'))
   })
+}
+
+// Prefixe toute clé localStorage par l'utilisateur connecté (bnb_demarches,
+// bnb_params, bnb_signature) pour éviter qu'un compte voie/écrase les
+// données locales d'un autre compte sur le même navigateur (même bug que
+// celui corrigé sur Finance le 14/07/2026 — la signature notamment ne
+// doit jamais fuiter d'un compte à l'autre, elle est intégrée aux PDF).
+function uKey(key) { return (USER_ID ? USER_ID : 'anon') + '_' + key }
+function migrateLegacyLocalStorage() {
+  if (!USER_ID) return
+  var flag = uKey('bnb_migrated_v1')
+  if (localStorage.getItem(flag)) return
+  try {
+    ['bnb_demarches', 'bnb_params', 'bnb_signature'].forEach(function(k) {
+      var newKey = uKey(k)
+      if (localStorage.getItem(newKey) === null && localStorage.getItem(k) !== null) {
+        localStorage.setItem(newKey, localStorage.getItem(k))
+      }
+      localStorage.removeItem(k)
+    })
+    localStorage.setItem(flag, '1')
+  } catch(e) {}
 }
 
 // ÉTAT
@@ -2574,7 +2596,7 @@ function calcFiscal() {
 }
 
 // DEMARCHES ENRICHIES
-const demStates = JSON.parse(localStorage.getItem('bnb_demarches') || '{}');
+const demStates = JSON.parse(localStorage.getItem(uKey('bnb_demarches')) || '{}');
 const demOpen = {};
 
 function toggleDem(n) {
@@ -2588,7 +2610,7 @@ function toggleDem(n) {
 
 function markDemDone(n) {
   demStates[n] = !demStates[n];
-  localStorage.setItem('bnb_demarches', JSON.stringify(demStates));
+  localStorage.setItem(uKey('bnb_demarches'), JSON.stringify(demStates));
   renderDem();
 }
 
@@ -2635,7 +2657,7 @@ function prefillCerfa(bien) {
     bien = biens.find(b => b.id === bienId);
   }
   if (!bien) return;
-  const params = JSON.parse(localStorage.getItem('bnb_params') || '{}');
+  const params = JSON.parse(localStorage.getItem(uKey('bnb_params')) || '{}');
   if (params.nom) {
     const parts = params.nom.trim().split(' ');
     document.getElementById('cerfa-prenom').value = parts[0] || '';
@@ -3349,7 +3371,7 @@ async function sendMsgBailleur() {
   const input = document.getElementById('msg-bailleur-input');
   const contenu = input.value.trim();
   if (!contenu) return;
-  const params = JSON.parse(localStorage.getItem('bnb_params') || '{}');
+  const params = JSON.parse(localStorage.getItem(uKey('bnb_params')) || '{}');
   input.value = '';
   await db.from('bnb_messages').insert({
     resa_id: currentResaMsg, user_id: USER_ID,
@@ -3421,7 +3443,7 @@ function initSignatureCanvas() {
   canvas.addEventListener('touchend', stop);
 
   // Charger signature existante
-  const saved = localStorage.getItem('bnb_signature');
+  const saved = localStorage.getItem(uKey('bnb_signature'));
   if (saved) {
     const img = new Image();
     img.onload = () => { ctx.drawImage(img, 0, 0); sigHasContent = true; document.getElementById('sig-placeholder').style.display = 'none'; };
@@ -3435,7 +3457,7 @@ function saveSignature() {
   const canvas = document.getElementById('sig-canvas');
   if (!sigHasContent) { alert('Veuillez signer dans le cadre avant d\'enregistrer.'); return; }
   const dataUrl = canvas.toDataURL('image/png');
-  localStorage.setItem('bnb_signature', dataUrl);
+  localStorage.setItem(uKey('bnb_signature'), dataUrl);
   document.getElementById('sig-preview').src = dataUrl;
   document.getElementById('sig-preview-box').style.display = 'block';
   alert('Signature enregistrée ! Elle sera intégrée dans vos documents PDF.');
@@ -3448,11 +3470,11 @@ function clearSignature() {
   sigHasContent = false;
   document.getElementById('sig-placeholder').style.display = 'flex';
   document.getElementById('sig-preview-box').style.display = 'none';
-  localStorage.removeItem('bnb_signature');
+  localStorage.removeItem(uKey('bnb_signature'));
 }
 
 function addSignatureToPDF(doc, x, y, width, height) {
-  const sig = localStorage.getItem('bnb_signature');
+  const sig = localStorage.getItem(uKey('bnb_signature'));
   if (!sig) return;
   try { doc.addImage(sig, 'PNG', x, y, width, height); } catch(e) { console.warn('Signature PDF error:', e); }
 }
@@ -3719,7 +3741,7 @@ function saveParams() {
     tel: document.getElementById('param-tel').value,
     regime: document.getElementById('param-regime').value
   };
-  localStorage.setItem('bnb_params', JSON.stringify(data));
+  localStorage.setItem(uKey('bnb_params'), JSON.stringify(data));
   // Sauvegarder aussi dans Supabase bnb_settings pour l'espace voyageur
   db.from('bnb_settings').upsert({
     user_id: USER_ID,
@@ -3735,7 +3757,7 @@ function saveParams() {
 }
 
 function loadParams() {
-  const data = JSON.parse(localStorage.getItem('bnb_params') || '{}');
+  const data = JSON.parse(localStorage.getItem(uKey('bnb_params')) || '{}');
   if (data.nom) { document.getElementById('param-nom').value = data.nom; document.getElementById('contrat-bailleur').value = data.nom; }
   if (data.email) document.getElementById('param-email').value = data.email;
   if (data.adresse) { document.getElementById('param-adresse').value = data.adresse; document.getElementById('contrat-addr-bailleur').value = data.adresse; }
@@ -3788,6 +3810,7 @@ async function doBnbLogin() {
 }
 
 async function startApp() {
+  migrateLegacyLocalStorage();
   loadParams();
   renderDem();
   await loadBiens();
@@ -3932,7 +3955,7 @@ function openDocsFinanciers(resaId) {
   docsResaId = resaId;
   const r = resas.find(x => x.id === resaId);
   const b = r ? biens.find(x => x.id === r.bien_id) : null;
-  const params = JSON.parse(localStorage.getItem('bnb_params') || '{}');
+  const params = JSON.parse(localStorage.getItem(uKey('bnb_params')) || '{}');
   const nuits = r?.arrivee && r?.depart ? Math.round((new Date(r.depart) - new Date(r.arrivee)) / 86400000) : 0;
 
   document.getElementById('docs-resa-resume').innerHTML = `
@@ -3980,7 +4003,7 @@ function fmt(n) {
 }
 
 function getParams() {
-  return JSON.parse(localStorage.getItem('bnb_params') || '{}');
+  return JSON.parse(localStorage.getItem(uKey('bnb_params')) || '{}');
 }
 
 function buildDocHeader(doc, titre, numero, couleur) {
